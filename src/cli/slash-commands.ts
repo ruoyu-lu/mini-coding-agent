@@ -8,6 +8,11 @@ export type SlashCommand = {
   action: () => Promise<void> | void;
 };
 
+export type ParsedSlashInput = {
+  commandName: string;
+  args: string;
+};
+
 export const slashCommands: SlashCommand[] = [
   {
     name: 'init',
@@ -31,11 +36,28 @@ export function showSlashCommandHelp() {
 }
 
 export function normalizeSlashInput(input: string) {
-  return input.trim().replace(/^\/+/, '').toLowerCase();
+  return parseSlashInput(input)?.commandName ?? '';
+}
+
+export function parseSlashInput(input: string): ParsedSlashInput | null {
+  const trimmedInput = input.trimStart();
+  if (!trimmedInput.startsWith('/')) return null;
+
+  const withoutSlash = trimmedInput.replace(/^\/+/, '');
+  const match = withoutSlash.match(/^(\S*)(?:\s+([\s\S]*))?$/);
+
+  return {
+    commandName: match?.[1]?.toLowerCase() ?? '',
+    args: match?.[2] ?? '',
+  };
 }
 
 function getCommandTerms(command: SlashCommand) {
   return [command.name, ...(command.aliases ?? [])];
+}
+
+function hasCommandSeparator(input: string) {
+  return /^\s*\/+\S+\s/.test(input);
 }
 
 export function scoreCommandTerm(query: string, term: string) {
@@ -56,10 +78,23 @@ export function findSlashCommand(input: string) {
   return getSlashCommandMatches(input)[0] ?? null;
 }
 
-export function getSlashCommandMatches(input: string) {
-  if (!input.trim().startsWith('/')) return [];
+export function findExactSlashCommand(input: string) {
+  const parsedInput = parseSlashInput(input);
+  if (!parsedInput) return null;
 
-  const query = normalizeSlashInput(input);
+  return (
+    slashCommands.find((command) =>
+      getCommandTerms(command).some((term) => term.toLowerCase() === parsedInput.commandName),
+    ) ?? null
+  );
+}
+
+export function getSlashCommandMatches(input: string) {
+  const parsedInput = parseSlashInput(input);
+  if (!parsedInput) return [];
+  if (hasCommandSeparator(input)) return [];
+
+  const query = parsedInput.commandName;
   if (!query) return slashCommands;
 
   return slashCommands
@@ -73,9 +108,9 @@ export function getSlashCommandMatches(input: string) {
 }
 
 export async function handleSlashCommand(input: string) {
-  if (!input.trim().startsWith('/')) return false;
+  if (!parseSlashInput(input)) return false;
 
-  const command = findSlashCommand(input);
+  const command = findExactSlashCommand(input);
 
   if (!command) {
     console.log(pc.yellow(`Unknown command: ${input.trim()}`));

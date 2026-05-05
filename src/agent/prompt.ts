@@ -19,6 +19,7 @@ export async function promptForInput(message: string) {
 export async function readInputWithSlashSuggestions(message: string) {
   let value = '';
   let selectedIndex = 0;
+  let didSelectSuggestion = false;
   let renderedLines = 0;
 
   readline.emitKeypressEvents(process.stdin);
@@ -34,6 +35,7 @@ export async function readInputWithSlashSuggestions(message: string) {
 
     const suggestions = getSlashCommandMatches(value).slice(0, 6);
     if (selectedIndex >= suggestions.length) selectedIndex = 0;
+    if (suggestions.length === 0) didSelectSuggestion = false;
 
     const lines = [`${pc.cyan('?')} ${message}`, `${pc.dim('>')} ${value}`];
 
@@ -41,7 +43,7 @@ export async function readInputWithSlashSuggestions(message: string) {
       lines.push(
         '',
         ...suggestions.map((command, index) => {
-          const prefix = index === selectedIndex ? pc.cyan('›') : ' ';
+          const prefix = didSelectSuggestion && index === selectedIndex ? pc.cyan('›') : ' ';
           const name = pc.cyan(`/${command.name.padEnd(10)}`);
           return `${prefix} ${name} ${pc.dim(command.description)}`;
         }),
@@ -73,9 +75,20 @@ export async function readInputWithSlashSuggestions(message: string) {
       }
 
       if (key.name === 'return') {
-        const selectedCommand = getSlashCommandMatches(value)[selectedIndex];
+        const selectedCommand = didSelectSuggestion ? getSlashCommandMatches(value)[selectedIndex] : undefined;
         cleanup();
         resolve(selectedCommand ? `/${selectedCommand.name}` : value);
+        return;
+      }
+
+      if (key.name === 'tab') {
+        const selectedCommand = getSlashCommandMatches(value)[selectedIndex];
+        if (selectedCommand) {
+          value = `/${selectedCommand.name} `;
+          selectedIndex = 0;
+          didSelectSuggestion = false;
+          render();
+        }
         return;
       }
 
@@ -83,6 +96,7 @@ export async function readInputWithSlashSuggestions(message: string) {
         const suggestions = getSlashCommandMatches(value);
         if (suggestions.length > 0) {
           selectedIndex = (selectedIndex - 1 + suggestions.length) % suggestions.length;
+          didSelectSuggestion = true;
           render();
         }
         return;
@@ -92,6 +106,7 @@ export async function readInputWithSlashSuggestions(message: string) {
         const suggestions = getSlashCommandMatches(value);
         if (suggestions.length > 0) {
           selectedIndex = (selectedIndex + 1) % suggestions.length;
+          didSelectSuggestion = true;
           render();
         }
         return;
@@ -100,6 +115,7 @@ export async function readInputWithSlashSuggestions(message: string) {
       if (key.name === 'backspace') {
         value = value.slice(0, -1);
         selectedIndex = 0;
+        didSelectSuggestion = false;
         render();
         return;
       }
@@ -107,6 +123,7 @@ export async function readInputWithSlashSuggestions(message: string) {
       if (char && !key.ctrl && !key.meta) {
         value += char;
         selectedIndex = 0;
+        didSelectSuggestion = false;
         render();
       }
     };
