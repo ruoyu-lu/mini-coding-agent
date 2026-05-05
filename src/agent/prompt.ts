@@ -1,7 +1,15 @@
 import { isCancel, text } from '@clack/prompts';
+import type { ModelMessage } from 'ai';
 import readline from 'node:readline';
 import pc from 'picocolors';
 import { getSlashCommandMatches } from '../cli/slash-commands.js';
+
+export function createSingleTurnMessages(userInput: string): ModelMessage[] {
+  return [
+    { role: 'system', content: 'You are a helpful coding assistant.' },
+    { role: 'user', content: userInput },
+  ];
+}
 
 function getCodePointWidth(codePoint: number) {
   if (
