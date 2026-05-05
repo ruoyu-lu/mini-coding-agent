@@ -1,10 +1,15 @@
 {
   "name": "mini-coding-agent",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A small interactive coding agent CLI.",
+  "main": "./dist/index.js",
+  "bin": {
+    "minicode": "./dist/index.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
