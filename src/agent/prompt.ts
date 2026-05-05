@@ -4,10 +4,10 @@ import pc from 'picocolors';
 import { getSlashCommandMatches } from '../cli/slash-commands.js';
 
 export async function promptForInput(message: string) {
-  if (!process.stdin.isTTY) {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
     const value = await text({
       message,
-      placeholder: 'Type /init or /help',
+      placeholder: 'Type /init, /login, /help, or /exit',
     });
 
     return isCancel(value) ? null : value;
