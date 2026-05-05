@@ -3,6 +3,54 @@ import readline from 'node:readline';
 import pc from 'picocolors';
 import { getSlashCommandMatches } from '../cli/slash-commands.js';
 
+function getCodePointWidth(codePoint: number) {
+  if (
+    codePoint === 0 ||
+    codePoint < 32 ||
+    (codePoint >= 0x7f && codePoint < 0xa0) ||
+    (codePoint >= 0x300 && codePoint <= 0x36f)
+  ) {
+    return 0;
+  }
+
+  if (
+    codePoint >= 0x1100 &&
+    (codePoint <= 0x115f ||
+      codePoint === 0x2329 ||
+      codePoint === 0x232a ||
+      (codePoint >= 0x2e80 && codePoint <= 0xa4cf && codePoint !== 0x303f) ||
+      (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
+      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+      (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
+      (codePoint >= 0xfe30 && codePoint <= 0xfe6f) ||
+      (codePoint >= 0xff00 && codePoint <= 0xff60) ||
+      (codePoint >= 0xffe0 && codePoint <= 0xffe6))
+  ) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function getTerminalWidth(value: string) {
+  let width = 0;
+
+  for (const char of value) {
+    width += getCodePointWidth(char.codePointAt(0) ?? 0);
+  }
+
+  return width;
+}
+
+function getPreviousCodePointOffset(value: string, offset: number) {
+  return Array.from(value.slice(0, offset)).slice(0, -1).join('').length;
+}
+
+function getNextCodePointOffset(value: string, offset: number) {
+  const nextChar = Array.from(value.slice(offset))[0];
+  return nextChar ? offset + nextChar.length : offset;
+}
+
 export async function promptForInput(message: string) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     const value = await text({
@@ -60,14 +108,15 @@ export async function readInputWithSlashSuggestions(message: string) {
 
   const deleteBeforeCursor = () => {
     if (cursorOffset === 0) return;
-    input = input.slice(0, cursorOffset - 1) + input.slice(cursorOffset);
-    cursorOffset -= 1;
+    const previousOffset = getPreviousCodePointOffset(input, cursorOffset);
+    input = input.slice(0, previousOffset) + input.slice(cursorOffset);
+    cursorOffset = previousOffset;
     resetSelection();
   };
 
   const deleteAtCursor = () => {
     if (cursorOffset >= input.length) return;
-    input = input.slice(0, cursorOffset) + input.slice(cursorOffset + 1);
+    input = input.slice(0, cursorOffset) + input.slice(getNextCodePointOffset(input, cursorOffset));
     resetSelection();
   };
 
@@ -100,7 +149,7 @@ export async function readInputWithSlashSuggestions(message: string) {
     renderedLines = lines.length;
 
     readline.moveCursor(process.stdout, 0, -(lines.length - 2));
-    readline.cursorTo(process.stdout, 2 + cursorOffset);
+    readline.cursorTo(process.stdout, 2 + getTerminalWidth(input.slice(0, cursorOffset)));
   };
 
   return new Promise<string | null>((resolve) => {
@@ -140,13 +189,13 @@ export async function readInputWithSlashSuggestions(message: string) {
       }
 
       if (key.name === 'left') {
-        cursorOffset = Math.max(0, cursorOffset - 1);
+        cursorOffset = getPreviousCodePointOffset(input, cursorOffset);
         render();
         return;
       }
 
       if (key.name === 'right') {
-        cursorOffset = Math.min(input.length, cursorOffset + 1);
+        cursorOffset = getNextCodePointOffset(input, cursorOffset);
         render();
         return;
       }
