@@ -17,7 +17,8 @@ export async function promptForInput(message: string) {
 }
 
 export async function readInputWithSlashSuggestions(message: string) {
-  let value = '';
+  let input = '';
+  let cursorOffset = 0;
   let selectedIndex = 0;
   let didSelectSuggestion = false;
   let renderedLines = 0;
@@ -26,6 +27,50 @@ export async function readInputWithSlashSuggestions(message: string) {
   process.stdin.setRawMode(true);
   process.stdin.resume();
 
+  const resetSelection = () => {
+    selectedIndex = 0;
+    didSelectSuggestion = false;
+  };
+
+  const getSuggestionInput = () => input.slice(0, cursorOffset);
+
+  const getSuggestions = () => getSlashCommandMatches(getSuggestionInput()).slice(0, 6);
+
+  const applyCommandSuggestion = (commandName: string) => {
+    const beforeCursor = input.slice(0, cursorOffset);
+    const afterCursor = input.slice(cursorOffset);
+    const commandStartMatch = beforeCursor.match(/^\s*\/+/);
+    if (!commandStartMatch) return;
+
+    const commandStart = commandStartMatch[0].replace(/\/+$/, '').length;
+    const afterCommandMatch = afterCursor.match(/^\S*/);
+    const commandEnd = cursorOffset + (afterCommandMatch?.[0].length ?? 0);
+    const replacement = `/${commandName} `;
+
+    input = input.slice(0, commandStart) + replacement + input.slice(commandEnd);
+    cursorOffset = commandStart + replacement.length;
+    resetSelection();
+  };
+
+  const insertText = (textToInsert: string) => {
+    input = input.slice(0, cursorOffset) + textToInsert + input.slice(cursorOffset);
+    cursorOffset += textToInsert.length;
+    resetSelection();
+  };
+
+  const deleteBeforeCursor = () => {
+    if (cursorOffset === 0) return;
+    input = input.slice(0, cursorOffset - 1) + input.slice(cursorOffset);
+    cursorOffset -= 1;
+    resetSelection();
+  };
+
+  const deleteAtCursor = () => {
+    if (cursorOffset >= input.length) return;
+    input = input.slice(0, cursorOffset) + input.slice(cursorOffset + 1);
+    resetSelection();
+  };
+
   const render = () => {
     if (renderedLines > 0) {
       readline.moveCursor(process.stdout, 0, -1);
@@ -33,11 +78,11 @@ export async function readInputWithSlashSuggestions(message: string) {
       readline.clearScreenDown(process.stdout);
     }
 
-    const suggestions = getSlashCommandMatches(value).slice(0, 6);
+    const suggestions = getSuggestions();
     if (selectedIndex >= suggestions.length) selectedIndex = 0;
     if (suggestions.length === 0) didSelectSuggestion = false;
 
-    const lines = [`${pc.cyan('?')} ${message}`, `${pc.dim('>')} ${value}`];
+    const lines = [`${pc.cyan('?')} ${message}`, `${pc.dim('>')} ${input}`];
 
     if (suggestions.length > 0) {
       lines.push(
@@ -55,7 +100,7 @@ export async function readInputWithSlashSuggestions(message: string) {
     renderedLines = lines.length;
 
     readline.moveCursor(process.stdout, 0, -(lines.length - 2));
-    readline.cursorTo(process.stdout, 2 + value.length);
+    readline.cursorTo(process.stdout, 2 + cursorOffset);
   };
 
   return new Promise<string | null>((resolve) => {
@@ -76,25 +121,56 @@ export async function readInputWithSlashSuggestions(message: string) {
       }
 
       if (key.name === 'return') {
-        const selectedCommand = didSelectSuggestion ? getSlashCommandMatches(value)[selectedIndex] : undefined;
+        const selectedCommand = didSelectSuggestion ? getSuggestions()[selectedIndex] : undefined;
+        if (selectedCommand) {
+          applyCommandSuggestion(selectedCommand.name);
+        }
         cleanup();
-        resolve(selectedCommand ? `/${selectedCommand.name}` : value);
+        resolve(input);
         return;
       }
 
       if (key.name === 'tab') {
-        const selectedCommand = getSlashCommandMatches(value)[selectedIndex];
+        const selectedCommand = getSuggestions()[selectedIndex];
         if (selectedCommand) {
-          value = `/${selectedCommand.name} `;
-          selectedIndex = 0;
-          didSelectSuggestion = false;
+          applyCommandSuggestion(selectedCommand.name);
           render();
         }
         return;
       }
 
+      if (key.name === 'left') {
+        cursorOffset = Math.max(0, cursorOffset - 1);
+        render();
+        return;
+      }
+
+      if (key.name === 'right') {
+        cursorOffset = Math.min(input.length, cursorOffset + 1);
+        render();
+        return;
+      }
+
+      if (key.name === 'home' || (key.ctrl && key.name === 'a')) {
+        cursorOffset = 0;
+        render();
+        return;
+      }
+
+      if (key.name === 'end' || (key.ctrl && key.name === 'e')) {
+        cursorOffset = input.length;
+        render();
+        return;
+      }
+
+      if (key.name === 'delete') {
+        deleteAtCursor();
+        render();
+        return;
+      }
+
       if (key.name === 'up') {
-        const suggestions = getSlashCommandMatches(value);
+        const suggestions = getSuggestions();
         if (suggestions.length > 0) {
           selectedIndex = (selectedIndex - 1 + suggestions.length) % suggestions.length;
           didSelectSuggestion = true;
@@ -104,7 +180,7 @@ export async function readInputWithSlashSuggestions(message: string) {
       }
 
       if (key.name === 'down') {
-        const suggestions = getSlashCommandMatches(value);
+        const suggestions = getSuggestions();
         if (suggestions.length > 0) {
           selectedIndex = (selectedIndex + 1) % suggestions.length;
           didSelectSuggestion = true;
@@ -114,17 +190,13 @@ export async function readInputWithSlashSuggestions(message: string) {
       }
 
       if (key.name === 'backspace') {
-        value = value.slice(0, -1);
-        selectedIndex = 0;
-        didSelectSuggestion = false;
+        deleteBeforeCursor();
         render();
         return;
       }
 
       if (char && !key.ctrl && !key.meta) {
-        value += char;
-        selectedIndex = 0;
-        didSelectSuggestion = false;
+        insertText(char);
         render();
       }
     };
