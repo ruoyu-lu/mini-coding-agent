@@ -1,5 +1,6 @@
 import pc from 'picocolors';
 import { runInitCommand } from './commands/init.js';
+import { runLoginCommand } from './commands/login.js';
 
 export type SlashCommand = {
   name: string;
@@ -18,6 +19,11 @@ export const slashCommands: SlashCommand[] = [
     name: 'init',
     description: 'Create local Minicode config files.',
     action: runInitCommand,
+  },
+  {
+    name: 'login',
+    description: 'Configure an OpenAI-compatible provider.',
+    action: runLoginCommand,
   },
   {
     name: 'help',

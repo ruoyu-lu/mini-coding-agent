@@ -4,6 +4,7 @@ import { outro } from '@clack/prompts';
 import { Command } from 'commander';
 import pc from 'picocolors';
 import { runInitCommand } from './cli/commands/init.js';
+import { runLoginCommand } from './cli/commands/login.js';
 import { runInteractiveMode } from './cli/interactive.js';
 
 export function createProgram() {
@@ -19,6 +20,11 @@ export function createProgram() {
     .command('init')
     .description('Create local Minicode config files.')
     .action(runInitCommand);
+
+  program
+    .command('login')
+    .description('Configure an OpenAI-compatible provider.')
+    .action(runLoginCommand);
 
   return program;
 }
