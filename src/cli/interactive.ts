@@ -1,9 +1,8 @@
 import { intro, outro, spinner } from '@clack/prompts';
 import pc from 'picocolors';
+import { generateAgentResponse } from '../agent/llm.js';
 import { promptForInput } from '../agent/prompt.js';
 import { handleSlashCommand } from './slash-commands.js';
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function runInteractiveMode() {
   console.clear();
@@ -30,11 +29,13 @@ export async function runInteractiveMode() {
     const s = spinner();
     s.start('Agent is thinking...');
 
-    // TODO: Replace this with a real LLM call.
-    await sleep(1000);
-
-    s.stop('Thinking complete!');
-
-    console.log(pc.green(`You said: ${userInput}\n(LLM implementation coming soon...)`));
+    try {
+      const response = await generateAgentResponse(userInput);
+      s.stop('Thinking complete!');
+      console.log(`${pc.green('Assistant:')} ${response || pc.dim('(empty response)')}`);
+    } catch (error) {
+      s.stop('Agent failed.');
+      console.log(pc.red(error instanceof Error ? error.message : 'Unexpected LLM error'));
+    }
   }
 }
