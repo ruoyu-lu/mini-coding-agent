@@ -43,9 +43,10 @@ export async function readInputWithSlashSuggestions(message: string) {
       lines.push(
         '',
         ...suggestions.map((command, index) => {
-          const prefix = didSelectSuggestion && index === selectedIndex ? pc.cyan('›') : ' ';
-          const name = pc.cyan(`/${command.name.padEnd(10)}`);
-          return `${prefix} ${name} ${pc.dim(command.description)}`;
+          const isSelected = didSelectSuggestion && index === selectedIndex;
+          const prefix = isSelected ? pc.blue('›') : ' ';
+          const name = `/${command.name.padEnd(10)}`;
+          return `${prefix} ${isSelected ? pc.blue(name) : pc.gray(name)} ${pc.gray(command.description)}`;
         }),
       );
     }
