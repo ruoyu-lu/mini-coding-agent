@@ -6,12 +6,19 @@ export type SlashCommand = {
   name: string;
   description: string;
   aliases?: string[];
-  action: () => Promise<void> | void;
+  action: () => Promise<SlashCommandActionResult> | SlashCommandActionResult;
 };
+
+export type SlashCommandActionResult = 'continue' | 'exit' | void;
 
 export type ParsedSlashInput = {
   commandName: string;
   args: string;
+};
+
+export type SlashCommandHandleResult = {
+  handled: boolean;
+  shouldExit: boolean;
 };
 
 export const slashCommands: SlashCommand[] = [
@@ -30,6 +37,12 @@ export const slashCommands: SlashCommand[] = [
     aliases: ['?'],
     description: 'Show available slash commands.',
     action: showSlashCommandHelp,
+  },
+  {
+    name: 'exit',
+    aliases: ['quit', 'q'],
+    description: 'Exit Minicode.',
+    action: () => 'exit',
   },
 ];
 
@@ -114,16 +127,18 @@ export function getSlashCommandMatches(input: string) {
 }
 
 export async function handleSlashCommand(input: string) {
-  if (!parseSlashInput(input)) return false;
+  if (!parseSlashInput(input)) {
+    return { handled: false, shouldExit: false };
+  }
 
   const command = findExactSlashCommand(input);
 
   if (!command) {
     console.log(pc.yellow(`Unknown command: ${input.trim()}`));
     showSlashCommandHelp();
-    return true;
+    return { handled: true, shouldExit: false };
   }
 
-  await command.action();
-  return true;
+  const result = await command.action();
+  return { handled: true, shouldExit: result === 'exit' };
 }

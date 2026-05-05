@@ -9,25 +9,32 @@ export async function runInteractiveMode() {
   console.clear();
   intro(pc.bgCyan(pc.black(' Mini Code Agent')));
 
-  const userInput = await promptForInput('What do you want me to do?');
+  while (true) {
+    const userInput = await promptForInput('What do you want me to do?');
 
-  if (userInput === null) {
-    outro(pc.yellow('Goodbye!'));
-    process.exit(0);
+    if (userInput === null) {
+      outro(pc.yellow('Goodbye!'));
+      process.exit(0);
+    }
+
+    const slashCommandResult = await handleSlashCommand(userInput);
+    if (slashCommandResult.shouldExit) {
+      outro(pc.yellow('Goodbye!'));
+      process.exit(0);
+    }
+
+    if (slashCommandResult.handled) continue;
+
+    if (!userInput.trim()) continue;
+
+    const s = spinner();
+    s.start('Agent is thinking...');
+
+    // TODO: Replace this with a real LLM call.
+    await sleep(1000);
+
+    s.stop('Thinking complete!');
+
+    console.log(pc.green(`You said: ${userInput}\n(LLM implementation coming soon...)`));
   }
-
-  if (await handleSlashCommand(userInput)) {
-    outro(pc.cyan('Done.'));
-    return;
-  }
-
-  const s = spinner();
-  s.start('Agent is thinking...');
-
-  // TODO: Replace this with a real LLM call.
-  await sleep(1000);
-
-  s.stop('Thinking complete!');
-
-  outro(pc.green(`You said: ${userInput}\n(LLM implementation coming soon...)`));
 }
