@@ -6,6 +6,9 @@ import pc from 'picocolors';
 import { runInitCommand } from './cli/commands/init.js';
 import { runLoginCommand } from './cli/commands/login.js';
 import { runInteractiveMode } from './cli/interactive.js';
+import { loadUserEnv } from './config/user-env.js';
+
+loadUserEnv();
 
 export function createProgram() {
   const program = new Command();
