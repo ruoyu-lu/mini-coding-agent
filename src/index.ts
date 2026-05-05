@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
 import { intro, isCancel, outro, spinner, text } from '@clack/prompts';
+import { Command } from 'commander';
 import pc from 'picocolors';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function main() {
+async function runInteractiveMode() {
   console.clear();
   intro(pc.bgCyan(pc.black(' Mini Code Agent')));
 
@@ -30,7 +31,15 @@ async function main() {
   outro(pc.green(`You said: ${userInput}\n(LLM implementation coming soon...)`));
 }
 
-main().catch((error) => {
+const program = new Command();
+
+program
+  .name('minicode')
+  .description('A small interactive coding agent CLI.')
+  .version('1.0.0')
+  .action(runInteractiveMode);
+
+program.parseAsync(process.argv).catch((error) => {
   outro(pc.red(error instanceof Error ? error.message : 'Unexpected error'));
   process.exit(1);
 });
