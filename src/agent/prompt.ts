@@ -11,6 +11,10 @@ export function createSingleTurnMessages(userInput: string): ModelMessage[] {
   return [{ role: 'user', content: userInput }];
 }
 
+export function createConversationMessages(history: ModelMessage[], userInput: string): ModelMessage[] {
+  return [...history, { role: 'user', content: userInput }];
+}
+
 function getCodePointWidth(codePoint: number) {
   if (
     codePoint === 0 ||

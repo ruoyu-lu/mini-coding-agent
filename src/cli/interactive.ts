@@ -1,12 +1,21 @@
 import { intro, outro, spinner } from '@clack/prompts';
+import type { ModelMessage } from 'ai';
 import pc from 'picocolors';
 import { streamAgentResponse } from '../agent/llm.js';
-import { promptForInput } from '../agent/prompt.js';
+import { createConversationMessages, promptForInput } from '../agent/prompt.js';
 import { handleSlashCommand } from './slash-commands.js';
+
+const maxConversationMessages = 20;
+
+function trimConversationHistory(history: ModelMessage[]) {
+  return history.slice(-maxConversationMessages);
+}
 
 export async function runInteractiveMode() {
   console.clear();
   intro(pc.bgCyan(pc.black(' Mini Code Agent')));
+
+  let conversationHistory: ModelMessage[] = [];
 
   while (true) {
     const userInput = await promptForInput('What do you want me to do?');
@@ -32,8 +41,10 @@ export async function runInteractiveMode() {
     try {
       let didStartStreaming = false;
       let didReceiveText = false;
+      const messages = createConversationMessages(conversationHistory, userInput);
 
-      await streamAgentResponse(userInput, {
+      const assistantResponse = await streamAgentResponse(userInput, {
+        messages,
         onTextDelta(text) {
           if (!didStartStreaming) {
             s.stop(`${pc.green('Assistant:')}`);
@@ -60,6 +71,13 @@ export async function runInteractiveMode() {
       }
 
       process.stdout.write('\n');
+
+      if (assistantResponse.trim()) {
+        conversationHistory = trimConversationHistory([
+          ...messages,
+          { role: 'assistant', content: assistantResponse },
+        ]);
+      }
     } catch (error) {
       s.stop('Agent failed.');
       console.log(pc.red(error instanceof Error ? error.message : 'Unexpected LLM error'));
