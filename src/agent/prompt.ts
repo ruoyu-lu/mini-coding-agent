@@ -4,11 +4,11 @@ import readline from 'node:readline';
 import pc from 'picocolors';
 import { getSlashCommandMatches } from '../cli/slash-commands.js';
 
+export const agentSystemPrompt =
+  'You are a helpful coding assistant. Use available tools to inspect project files before answering questions that depend on file contents.';
+
 export function createSingleTurnMessages(userInput: string): ModelMessage[] {
-  return [
-    { role: 'system', content: 'You are a helpful coding assistant.' },
-    { role: 'user', content: userInput },
-  ];
+  return [{ role: 'user', content: userInput }];
 }
 
 function getCodePointWidth(codePoint: number) {

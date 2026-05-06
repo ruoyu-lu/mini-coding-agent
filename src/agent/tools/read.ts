@@ -1,0 +1,77 @@
+import { readFile, realpath, stat } from 'node:fs/promises';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { tool } from 'ai';
+import { z } from 'zod';
+
+const maxOutputCharacters = 40_000;
+const blockedPathParts = new Set(['.env', '.minicode', 'node_modules', 'dist']);
+
+function isPathInside(parent: string, child: string) {
+  const pathToChild = relative(parent, child);
+  return pathToChild === '' || (!pathToChild.startsWith('..') && !isAbsolute(pathToChild));
+}
+
+function assertReadablePath(projectRoot: string, filePath: string) {
+  const relativePath = relative(projectRoot, filePath);
+  const pathParts = relativePath.split(sep);
+  const blockedPathPart = pathParts.find((part) => blockedPathParts.has(part));
+
+  if (!isPathInside(projectRoot, filePath)) {
+    throw new Error('Read path must be inside the current project.');
+  }
+
+  if (blockedPathPart) {
+    throw new Error(`Reading ${blockedPathPart} is blocked because it may contain secrets or generated output.`);
+  }
+}
+
+function normalizeLineRange(totalLines: number, startLine?: number, endLine?: number) {
+  const start = Math.max(1, startLine ?? 1);
+  const end = Math.min(totalLines, endLine ?? totalLines);
+
+  if (start > end) {
+    throw new Error('startLine must be less than or equal to endLine.');
+  }
+
+  return { start, end };
+}
+
+export const readTool = tool({
+  description:
+    'Read a UTF-8 text file from the current project. Use this before answering questions about specific files.',
+  inputSchema: z.object({
+    path: z.string().describe('File path to read, relative to the current project when possible.'),
+    startLine: z.number().int().positive().optional().describe('Optional 1-based first line to include.'),
+    endLine: z.number().int().positive().optional().describe('Optional 1-based last line to include.'),
+  }),
+  execute: async ({ path, startLine, endLine }) => {
+    const projectRoot = await realpath(process.cwd());
+    const requestedPath = resolve(projectRoot, path);
+    const filePath = await realpath(requestedPath);
+
+    assertReadablePath(projectRoot, filePath);
+
+    const fileStat = await stat(filePath);
+    if (!fileStat.isFile()) {
+      throw new Error('Read path must point to a file.');
+    }
+
+    const rawContent = await readFile(filePath, 'utf8');
+    const lines = rawContent.split(/\r?\n/);
+    const { start, end } = normalizeLineRange(lines.length, startLine, endLine);
+    const rangedContent = lines.slice(start - 1, end).join('\n');
+    const content =
+      rangedContent.length > maxOutputCharacters
+        ? rangedContent.slice(0, maxOutputCharacters)
+        : rangedContent;
+
+    return {
+      path: relative(projectRoot, filePath),
+      startLine: start,
+      endLine: end,
+      totalLines: lines.length,
+      truncated: content.length < rangedContent.length,
+      content,
+    };
+  },
+});
