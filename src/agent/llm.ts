@@ -1,4 +1,4 @@
-import { streamText, stepCountIs } from 'ai';
+import { streamText as aiStreamText, stepCountIs as aiStepCountIs } from 'ai';
 import type { ModelMessage } from 'ai';
 import { agentSystemPrompt, createSingleTurnMessages } from './prompt.js';
 import { createAgentTools } from './tools/index.js';
@@ -11,16 +11,44 @@ export type StreamAgentResponseOptions = {
   onError?: (error: unknown) => void;
 };
 
-export async function streamAgentResponse(userInput: string, options: StreamAgentResponseOptions) {
-  const { model, providerName, modelName } = getLanguageModel();
+type StreamAgentResponseDependencies = {
+  getLanguageModel: typeof getLanguageModel;
+  getProviderOptions: typeof getProviderOptions;
+  createAgentTools: typeof createAgentTools;
+  streamText: typeof aiStreamText;
+  stepCountIs: typeof aiStepCountIs;
+};
+
+const defaultStreamAgentResponseDependencies: StreamAgentResponseDependencies = {
+  getLanguageModel,
+  getProviderOptions,
+  createAgentTools,
+  streamText: aiStreamText,
+  stepCountIs: aiStepCountIs,
+};
+
+export async function streamAgentResponse(
+  userInput: string,
+  options: StreamAgentResponseOptions,
+  dependencies: Partial<StreamAgentResponseDependencies> = {},
+) {
+  const {
+    getLanguageModel: resolveLanguageModel,
+    getProviderOptions: resolveProviderOptions,
+    createAgentTools: resolveAgentTools,
+    streamText,
+    stepCountIs,
+  } = { ...defaultStreamAgentResponseDependencies, ...dependencies };
+
+  const { model, providerName, modelName } = resolveLanguageModel();
 
   const result = streamText({
     model,
     system: agentSystemPrompt,
     messages: options.messages ?? createSingleTurnMessages(userInput),
-    tools: createAgentTools(),
+    tools: resolveAgentTools(),
     stopWhen: stepCountIs(3),
-    providerOptions: getProviderOptions(providerName, modelName),
+    providerOptions: resolveProviderOptions(providerName, modelName),
     onError({ error }) {
       options.onError?.(error);
     },
@@ -36,8 +64,11 @@ export async function streamAgentResponse(userInput: string, options: StreamAgen
   return text;
 }
 
-export async function generateAgentResponse(userInput: string) {
+export async function generateAgentResponse(
+  userInput: string,
+  dependencies: Partial<StreamAgentResponseDependencies> = {},
+) {
   return streamAgentResponse(userInput, {
     onTextDelta() {},
-  });
+  }, dependencies);
 }
