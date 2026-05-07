@@ -9,7 +9,7 @@ export const userEnvPath = join(appConfigDir, '.env');
 
 export function loadUserEnv() {
   if (!existsSync(userEnvPath)) return;
-  dotenv.config({ path: userEnvPath });
+  dotenv.config({ path: userEnvPath, quiet: true });
 }
 
 function escapeEnvValue(value: string) {

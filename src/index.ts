@@ -2,13 +2,12 @@
 
 import { outro } from '@clack/prompts';
 import { Command } from 'commander';
+import { pathToFileURL } from 'node:url';
 import pc from 'picocolors';
 import { runInitCommand } from './cli/commands/init.js';
 import { runLoginCommand } from './cli/commands/login.js';
 import { runInteractiveMode } from './cli/interactive.js';
 import { loadUserEnv } from './config/user-env.js';
-
-loadUserEnv();
 
 export function createProgram() {
   const program = new Command();
@@ -32,7 +31,22 @@ export function createProgram() {
   return program;
 }
 
-createProgram().parseAsync(process.argv).catch((error) => {
-  outro(pc.red(error instanceof Error ? error.message : 'Unexpected error'));
-  process.exit(1);
-});
+function isMainModule() {
+  const entryPoint = process.argv[1];
+  return entryPoint ? import.meta.url === pathToFileURL(entryPoint).href : false;
+}
+
+export async function runCli(argv = process.argv) {
+  loadUserEnv();
+
+  try {
+    await createProgram().parseAsync(argv);
+  } catch (error) {
+    outro(pc.red(error instanceof Error ? error.message : 'Unexpected error'));
+    process.exit(1);
+  }
+}
+
+if (isMainModule()) {
+  void runCli();
+}

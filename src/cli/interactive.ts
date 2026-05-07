@@ -7,7 +7,7 @@ import { handleSlashCommand } from './slash-commands.js';
 
 const maxConversationMessages = 20;
 
-function trimConversationHistory(history: ModelMessage[]) {
+export function trimConversationHistory(history: ModelMessage[]) {
   return history.slice(-maxConversationMessages);
 }
 
