@@ -44,3 +44,23 @@ export function restoreProcessEnv(t: TestContext, keys: string[]) {
     }
   });
 }
+
+export function createSeededRandom(seed: number) {
+  let state = seed >>> 0;
+
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
+export function createRandomString(random: () => number, alphabet: string, maxLength: number) {
+  const length = Math.floor(random() * (maxLength + 1));
+  let value = '';
+
+  for (let index = 0; index < length; index += 1) {
+    value += alphabet[Math.floor(random() * alphabet.length)];
+  }
+
+  return value;
+}

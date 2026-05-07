@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { captureConsoleLog } from '../test/helpers.js';
+import { captureConsoleLog, createRandomString, createSeededRandom } from '../test/helpers.js';
 import {
   findExactSlashCommand,
   findSlashCommand,
@@ -78,4 +78,47 @@ test('handleSlashCommand handles unknown slash commands with help', async (t) =>
   assert.deepEqual(await handleSlashCommand('/missing'), { handled: true, shouldExit: false });
   assert.match(logs.join('\n'), /Unknown command: \/missing/);
   assert.match(logs.join('\n'), /Available slash commands/);
+});
+
+test('slash command parser fuzz: arbitrary input never throws', () => {
+  const random = createSeededRandom(0x5eed);
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /?._-\t\n';
+
+  for (let index = 0; index < 500; index += 1) {
+    const input = createRandomString(random, alphabet, 80);
+
+    assert.doesNotThrow(() => parseSlashInput(input), `parseSlashInput threw for ${JSON.stringify(input)}`);
+    assert.doesNotThrow(() => normalizeSlashInput(input), `normalizeSlashInput threw for ${JSON.stringify(input)}`);
+    assert.doesNotThrow(() => getSlashCommandMatches(input), `getSlashCommandMatches threw for ${JSON.stringify(input)}`);
+    assert.doesNotThrow(() => findSlashCommand(input), `findSlashCommand threw for ${JSON.stringify(input)}`);
+    assert.doesNotThrow(() => findExactSlashCommand(input), `findExactSlashCommand threw for ${JSON.stringify(input)}`);
+  }
+});
+
+test('slash command parser property: non-slash input never parses as a command', () => {
+  const random = createSeededRandom(0x51a57);
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ?._-\t\n';
+
+  for (let index = 0; index < 300; index += 1) {
+    const input = createRandomString(random, alphabet, 80);
+    if (input.trimStart().startsWith('/')) continue;
+
+    assert.equal(parseSlashInput(input), null);
+    assert.equal(normalizeSlashInput(input), '');
+    assert.deepEqual(getSlashCommandMatches(input), []);
+  }
+});
+
+test('slash command parser property: parsed command names are lowercase and whitespace-free', () => {
+  const random = createSeededRandom(0x10ad);
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /?._-\t\n';
+
+  for (let index = 0; index < 300; index += 1) {
+    const input = `/${createRandomString(random, alphabet, 80)}`;
+    const parsed = parseSlashInput(input);
+
+    assert.notEqual(parsed, null);
+    assert.equal(parsed?.commandName, parsed?.commandName.toLowerCase());
+    assert.equal(/\s/.test(parsed?.commandName ?? ''), false);
+  }
 });

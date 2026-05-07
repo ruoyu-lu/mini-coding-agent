@@ -55,3 +55,12 @@ test('globTool respects maxResults', async (t) => {
   assert.equal(result.count, 1);
   assert.equal(result.truncated, true);
 });
+
+test('globTool input schema rejects empty patterns and invalid limits', () => {
+  assert.equal(globTool.inputSchema.safeParse({ pattern: '' }).success, false);
+  assert.equal(globTool.inputSchema.safeParse({ pattern: '**/*', maxResults: 0 }).success, false);
+  assert.equal(globTool.inputSchema.safeParse({ pattern: '**/*', maxResults: -1 }).success, false);
+  assert.equal(globTool.inputSchema.safeParse({ pattern: '**/*', maxResults: 1.5 }).success, false);
+  assert.equal(globTool.inputSchema.safeParse({ pattern: '**/*', maxResults: 1001 }).success, false);
+  assert.equal(globTool.inputSchema.safeParse({ pattern: '**/*', maxResults: 1000 }).success, true);
+});

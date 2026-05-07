@@ -80,3 +80,13 @@ test('grepTool reports invalid regular expressions', async (t) => {
     /Invalid grep pattern/,
   );
 });
+
+test('grepTool input schema rejects empty patterns, empty includes, and invalid limits', () => {
+  assert.equal(grepTool.inputSchema.safeParse({ pattern: '' }).success, false);
+  assert.equal(grepTool.inputSchema.safeParse({ pattern: 'needle', include: '' }).success, false);
+  assert.equal(grepTool.inputSchema.safeParse({ pattern: 'needle', maxResults: 0 }).success, false);
+  assert.equal(grepTool.inputSchema.safeParse({ pattern: 'needle', maxResults: -1 }).success, false);
+  assert.equal(grepTool.inputSchema.safeParse({ pattern: 'needle', maxResults: 1.5 }).success, false);
+  assert.equal(grepTool.inputSchema.safeParse({ pattern: 'needle', maxResults: 1001 }).success, false);
+  assert.equal(grepTool.inputSchema.safeParse({ pattern: 'needle', maxResults: 1000 }).success, true);
+});

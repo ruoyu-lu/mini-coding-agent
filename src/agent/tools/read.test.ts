@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 import { createTempDir } from '../../test/helpers.js';
@@ -52,6 +52,18 @@ test('readTool blocks paths outside the project', async (t) => {
   );
 });
 
+test('readTool blocks symlinks that resolve outside the project', async (t) => {
+  const cwd = await createTempDir(t);
+  const outside = await createTempDir(t);
+  await writeFile(join(outside, 'secret.txt'), 'secret\n');
+  await symlink(join(outside, 'secret.txt'), join(cwd, 'linked-secret.txt'));
+
+  await assert.rejects(
+    readTool.execute({ path: 'linked-secret.txt' }, { cwd }),
+    /inside the current project/,
+  );
+});
+
 test('readTool blocks secret and generated output paths', async (t) => {
   const cwd = await createTempDir(t);
   await writeFile(join(cwd, '.env'), 'OPENAI_API_KEY=secret\n');
@@ -84,4 +96,12 @@ test('readTool truncates very large output', async (t) => {
 
   assert.equal(result.content.length, 40_000);
   assert.equal(result.truncated, true);
+});
+
+test('readTool input schema rejects invalid line ranges before execution', () => {
+  assert.equal(readTool.inputSchema.safeParse({ path: 'file.txt', startLine: 0 }).success, false);
+  assert.equal(readTool.inputSchema.safeParse({ path: 'file.txt', startLine: 1.5 }).success, false);
+  assert.equal(readTool.inputSchema.safeParse({ path: 'file.txt', endLine: -1 }).success, false);
+  assert.equal(readTool.inputSchema.safeParse({ startLine: 1 }).success, false);
+  assert.equal(readTool.inputSchema.safeParse({ path: 'file.txt', startLine: 1, endLine: 2 }).success, true);
 });
