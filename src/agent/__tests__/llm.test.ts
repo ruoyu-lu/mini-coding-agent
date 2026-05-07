@@ -34,8 +34,6 @@ test('streamAgentResponse streams text deltas and returns accumulated text', asy
       getProviderOptions: (providerName, modelName) => ({
         [providerName]: { modelName },
       }),
-      createAgentTools: () => ({ read: { description: 'Read.' } }) as never,
-      stepCountIs: (count) => ({ count }) as never,
       streamText: ((options: Record<string, unknown>) => {
         streamTextOptions = options;
         return { textStream: createTextStream(['hello', ' ', 'world']) };
@@ -48,7 +46,6 @@ test('streamAgentResponse streams text deltas and returns accumulated text', asy
   assert.equal(streamTextOptions?.system, agentSystemPrompt);
   assert.equal(streamTextOptions?.messages, messages);
   assert.deepEqual(streamTextOptions?.providerOptions, { testProvider: { modelName: 'test-model' } });
-  assert.deepEqual(streamTextOptions?.stopWhen, { count: 3 });
 });
 
 test('streamAgentResponse creates single-turn messages when none are supplied', async () => {
@@ -64,8 +61,6 @@ test('streamAgentResponse creates single-turn messages when none are supplied', 
         model: {} as never,
       }),
       getProviderOptions: () => ({}),
-      createAgentTools: () => ({}),
-      stepCountIs: () => ({}) as never,
       streamText: ((options: Record<string, unknown>) => {
         streamTextOptions = options;
         return { textStream: createTextStream([]) };
@@ -94,8 +89,6 @@ test('streamAgentResponse forwards stream errors to the caller callback', async 
         model: {} as never,
       }),
       getProviderOptions: () => ({}),
-      createAgentTools: () => ({}),
-      stepCountIs: () => ({}) as never,
       streamText: ((options: { onError?: (event: { error: unknown }) => void }) => {
         options.onError?.({ error: new Error('stream failed') });
         return { textStream: createTextStream([]) };
@@ -116,8 +109,6 @@ test('generateAgentResponse returns accumulated text without requiring a delta c
       model: {} as never,
     }),
     getProviderOptions: () => ({}),
-    createAgentTools: () => ({}),
-    stepCountIs: () => ({}) as never,
     streamText: (() => ({ textStream: createTextStream(['ok']) })) as never,
   });
 
