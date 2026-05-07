@@ -1,7 +1,86 @@
 import { isCancel, text } from '@clack/prompts';
+import type { ModelMessage } from 'ai';
 import readline from 'node:readline';
 import pc from 'picocolors';
 import { getSlashCommandMatches } from '../cli/slash-commands.js';
+
+export const agentSystemPrompt =
+  'You are a helpful coding assistant. Use available tools to inspect project files before answering questions that depend on file contents.';
+
+export function createSingleTurnMessages(userInput: string): ModelMessage[] {
+  return [{ role: 'user', content: userInput }];
+}
+
+export function createConversationMessages(history: ModelMessage[], userInput: string): ModelMessage[] {
+  return [...history, { role: 'user', content: userInput }];
+}
+
+function getCodePointWidth(codePoint: number) {
+  if (
+    codePoint === 0 ||
+    codePoint < 32 ||
+    (codePoint >= 0x7f && codePoint < 0xa0) ||
+    (codePoint >= 0x300 && codePoint <= 0x36f)
+  ) {
+    return 0;
+  }
+
+  if (
+    codePoint >= 0x1100 &&
+    (codePoint <= 0x115f ||
+      codePoint === 0x2329 ||
+      codePoint === 0x232a ||
+      (codePoint >= 0x2e80 && codePoint <= 0xa4cf && codePoint !== 0x303f) ||
+      (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
+      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
+      (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
+      (codePoint >= 0xfe30 && codePoint <= 0xfe6f) ||
+      (codePoint >= 0xff00 && codePoint <= 0xff60) ||
+      (codePoint >= 0xffe0 && codePoint <= 0xffe6))
+  ) {
+    return 2;
+  }
+
+  return 1;
+}
+
+function getTerminalWidth(value: string) {
+  let width = 0;
+
+  for (const char of value) {
+    width += getCodePointWidth(char.codePointAt(0) ?? 0);
+  }
+
+  return width;
+}
+
+function getTerminalColumns() {
+  return Math.max(1, process.stdout.columns ?? 80);
+}
+
+function getVisualRows(width: number, columns: number) {
+  return Math.max(1, Math.floor(width / columns) + 1);
+}
+
+function getWrittenRows(width: number, columns: number) {
+  return Math.max(1, Math.ceil(width / columns));
+}
+
+function getCursorPosition(width: number, columns: number) {
+  return {
+    row: Math.floor(width / columns),
+    column: width % columns,
+  };
+}
+
+function getPreviousCodePointOffset(value: string, offset: number) {
+  return Array.from(value.slice(0, offset)).slice(0, -1).join('').length;
+}
+
+function getNextCodePointOffset(value: string, offset: number) {
+  const nextChar = Array.from(value.slice(offset))[0];
+  return nextChar ? offset + nextChar.length : offset;
+}
 
 export async function promptForInput(message: string) {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -21,7 +100,8 @@ export async function readInputWithSlashSuggestions(message: string) {
   let cursorOffset = 0;
   let selectedIndex = 0;
   let didSelectSuggestion = false;
-  let renderedLines = 0;
+  let renderedRows = 0;
+  let renderedCursorRow = 0;
 
   readline.emitKeypressEvents(process.stdin);
   process.stdin.setRawMode(true);
@@ -60,20 +140,21 @@ export async function readInputWithSlashSuggestions(message: string) {
 
   const deleteBeforeCursor = () => {
     if (cursorOffset === 0) return;
-    input = input.slice(0, cursorOffset - 1) + input.slice(cursorOffset);
-    cursorOffset -= 1;
+    const previousOffset = getPreviousCodePointOffset(input, cursorOffset);
+    input = input.slice(0, previousOffset) + input.slice(cursorOffset);
+    cursorOffset = previousOffset;
     resetSelection();
   };
 
   const deleteAtCursor = () => {
     if (cursorOffset >= input.length) return;
-    input = input.slice(0, cursorOffset) + input.slice(cursorOffset + 1);
+    input = input.slice(0, cursorOffset) + input.slice(getNextCodePointOffset(input, cursorOffset));
     resetSelection();
   };
 
   const render = () => {
-    if (renderedLines > 0) {
-      readline.moveCursor(process.stdout, 0, -1);
+    if (renderedRows > 0) {
+      readline.moveCursor(process.stdout, 0, -renderedCursorRow);
       readline.cursorTo(process.stdout, 0);
       readline.clearScreenDown(process.stdout);
     }
@@ -83,24 +164,39 @@ export async function readInputWithSlashSuggestions(message: string) {
     if (suggestions.length === 0) didSelectSuggestion = false;
 
     const lines = [`${pc.cyan('?')} ${message}`, `${pc.dim('>')} ${input}`];
+    const lineWidths = [2 + getTerminalWidth(message), 2 + getTerminalWidth(input)];
 
     if (suggestions.length > 0) {
-      lines.push(
-        '',
-        ...suggestions.map((command, index) => {
-          const isSelected = didSelectSuggestion && index === selectedIndex;
-          const prefix = isSelected ? pc.blue('›') : ' ';
-          const name = `/${command.name.padEnd(10)}`;
-          return `${prefix} ${isSelected ? pc.blue(name) : pc.gray(name)} ${pc.gray(command.description)}`;
-        }),
-      );
+      lines.push('');
+      lineWidths.push(0);
+
+      for (const [index, command] of suggestions.entries()) {
+        const isSelected = didSelectSuggestion && index === selectedIndex;
+        const prefix = isSelected ? pc.blue('›') : ' ';
+        const plainPrefix = isSelected ? '›' : ' ';
+        const name = `/${command.name.padEnd(10)}`;
+
+        lines.push(`${prefix} ${isSelected ? pc.blue(name) : pc.gray(name)} ${pc.gray(command.description)}`);
+        lineWidths.push(getTerminalWidth(`${plainPrefix} ${name} ${command.description}`));
+      }
     }
 
-    process.stdout.write(lines.join('\n'));
-    renderedLines = lines.length;
+    const columns = getTerminalColumns();
+    const lineRows = lineWidths.map((width) => getVisualRows(width, columns));
+    const writtenRows = lineWidths.map((width) => getWrittenRows(width, columns));
+    const nextRenderedRows = lineRows.reduce((sum, rows) => sum + rows, 0);
+    const writtenCursorRow = writtenRows.reduce((sum, rows) => sum + rows, 0) - 1;
+    const cursorWidth = 2 + getTerminalWidth(input.slice(0, cursorOffset));
+    const cursorPosition = getCursorPosition(cursorWidth, columns);
+    const inputCursorRow = Math.min(cursorPosition.row, lineRows[1] - 1);
+    const nextRenderedCursorRow = lineRows[0] + inputCursorRow;
 
-    readline.moveCursor(process.stdout, 0, -(lines.length - 2));
-    readline.cursorTo(process.stdout, 2 + cursorOffset);
+    process.stdout.write(lines.join('\n'));
+    renderedRows = nextRenderedRows;
+    renderedCursorRow = nextRenderedCursorRow;
+
+    readline.moveCursor(process.stdout, 0, renderedCursorRow - writtenCursorRow);
+    readline.cursorTo(process.stdout, cursorPosition.column);
   };
 
   return new Promise<string | null>((resolve) => {
@@ -108,7 +204,7 @@ export async function readInputWithSlashSuggestions(message: string) {
       process.stdin.off('keypress', onKeypress);
       process.stdin.setRawMode(false);
       process.stdin.pause();
-      readline.moveCursor(process.stdout, 0, renderedLines - 2);
+      readline.moveCursor(process.stdout, 0, renderedRows - 1 - renderedCursorRow);
       readline.cursorTo(process.stdout, 0);
       process.stdout.write('\n');
     };
@@ -140,13 +236,13 @@ export async function readInputWithSlashSuggestions(message: string) {
       }
 
       if (key.name === 'left') {
-        cursorOffset = Math.max(0, cursorOffset - 1);
+        cursorOffset = getPreviousCodePointOffset(input, cursorOffset);
         render();
         return;
       }
 
       if (key.name === 'right') {
-        cursorOffset = Math.min(input.length, cursorOffset + 1);
+        cursorOffset = getNextCodePointOffset(input, cursorOffset);
         render();
         return;
       }
