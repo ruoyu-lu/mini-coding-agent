@@ -1,11 +1,12 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import type { LanguageModel } from 'ai';
 
 const providerName = 'openaiCompatible';
 
 export type LanguageModelConfig = {
   providerName: string;
   modelName: string;
-  model: ReturnType<ReturnType<typeof createOpenAICompatible>>;
+  model: LanguageModel;
 };
 
 function getEnv(name: string) {
