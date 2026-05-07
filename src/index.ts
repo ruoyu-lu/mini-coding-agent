@@ -2,7 +2,8 @@
 
 import { outro } from '@clack/prompts';
 import { Command } from 'commander';
-import { pathToFileURL } from 'node:url';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import pc from 'picocolors';
 import { runInitCommand } from './cli/commands/init.js';
 import { runLoginCommand } from './cli/commands/login.js';
@@ -31,9 +32,22 @@ export function createProgram() {
   return program;
 }
 
+function resolveRealPath(path: string) {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+export function isMainModuleUrl(moduleUrl: string, entryPoint: string | undefined) {
+  if (!entryPoint) return false;
+
+  return resolveRealPath(fileURLToPath(moduleUrl)) === resolveRealPath(entryPoint);
+}
+
 function isMainModule() {
-  const entryPoint = process.argv[1];
-  return entryPoint ? import.meta.url === pathToFileURL(entryPoint).href : false;
+  return isMainModuleUrl(import.meta.url, process.argv[1]);
 }
 
 export async function runCli(argv = process.argv) {
