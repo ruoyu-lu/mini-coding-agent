@@ -54,6 +54,19 @@ function getTerminalWidth(value: string) {
   return width;
 }
 
+function getTerminalColumns() {
+  return Math.max(1, process.stdout.columns ?? 80);
+}
+
+function getVisualRows(width: number, columns: number) {
+  return Math.max(1, Math.ceil(width / columns));
+}
+
+function getCursorColumn(width: number, columns: number) {
+  const column = width % columns;
+  return width > 0 && column === 0 ? columns - 1 : column;
+}
+
 function getPreviousCodePointOffset(value: string, offset: number) {
   return Array.from(value.slice(0, offset)).slice(0, -1).join('').length;
 }
@@ -81,7 +94,8 @@ export async function readInputWithSlashSuggestions(message: string) {
   let cursorOffset = 0;
   let selectedIndex = 0;
   let didSelectSuggestion = false;
-  let renderedLines = 0;
+  let renderedRows = 0;
+  let renderedCursorRow = 0;
 
   readline.emitKeypressEvents(process.stdin);
   process.stdin.setRawMode(true);
@@ -133,8 +147,8 @@ export async function readInputWithSlashSuggestions(message: string) {
   };
 
   const render = () => {
-    if (renderedLines > 0) {
-      readline.moveCursor(process.stdout, 0, -1);
+    if (renderedRows > 0) {
+      readline.moveCursor(process.stdout, 0, -renderedCursorRow);
       readline.cursorTo(process.stdout, 0);
       readline.clearScreenDown(process.stdout);
     }
@@ -144,24 +158,37 @@ export async function readInputWithSlashSuggestions(message: string) {
     if (suggestions.length === 0) didSelectSuggestion = false;
 
     const lines = [`${pc.cyan('?')} ${message}`, `${pc.dim('>')} ${input}`];
+    const lineWidths = [2 + getTerminalWidth(message), 2 + getTerminalWidth(input)];
 
     if (suggestions.length > 0) {
-      lines.push(
-        '',
-        ...suggestions.map((command, index) => {
-          const isSelected = didSelectSuggestion && index === selectedIndex;
-          const prefix = isSelected ? pc.blue('›') : ' ';
-          const name = `/${command.name.padEnd(10)}`;
-          return `${prefix} ${isSelected ? pc.blue(name) : pc.gray(name)} ${pc.gray(command.description)}`;
-        }),
-      );
+      lines.push('');
+      lineWidths.push(0);
+
+      for (const [index, command] of suggestions.entries()) {
+        const isSelected = didSelectSuggestion && index === selectedIndex;
+        const prefix = isSelected ? pc.blue('›') : ' ';
+        const plainPrefix = isSelected ? '›' : ' ';
+        const name = `/${command.name.padEnd(10)}`;
+
+        lines.push(`${prefix} ${isSelected ? pc.blue(name) : pc.gray(name)} ${pc.gray(command.description)}`);
+        lineWidths.push(getTerminalWidth(`${plainPrefix} ${name} ${command.description}`));
+      }
     }
 
-    process.stdout.write(lines.join('\n'));
-    renderedLines = lines.length;
+    const columns = getTerminalColumns();
+    const lineRows = lineWidths.map((width) => getVisualRows(width, columns));
+    const nextRenderedRows = lineRows.reduce((sum, rows) => sum + rows, 0);
+    const cursorWidth = 2 + getTerminalWidth(input.slice(0, cursorOffset));
+    const inputCursorRow = Math.min(Math.floor(cursorWidth / columns), lineRows[1] - 1);
+    const nextRenderedCursorRow = lineRows[0] + inputCursorRow;
+    const cursorColumn = getCursorColumn(cursorWidth, columns);
 
-    readline.moveCursor(process.stdout, 0, -(lines.length - 2));
-    readline.cursorTo(process.stdout, 2 + getTerminalWidth(input.slice(0, cursorOffset)));
+    process.stdout.write(lines.join('\n'));
+    renderedRows = nextRenderedRows;
+    renderedCursorRow = nextRenderedCursorRow;
+
+    readline.moveCursor(process.stdout, 0, renderedCursorRow - (renderedRows - 1));
+    readline.cursorTo(process.stdout, cursorColumn);
   };
 
   return new Promise<string | null>((resolve) => {
@@ -169,7 +196,7 @@ export async function readInputWithSlashSuggestions(message: string) {
       process.stdin.off('keypress', onKeypress);
       process.stdin.setRawMode(false);
       process.stdin.pause();
-      readline.moveCursor(process.stdout, 0, renderedLines - 2);
+      readline.moveCursor(process.stdout, 0, renderedRows - 1 - renderedCursorRow);
       readline.cursorTo(process.stdout, 0);
       process.stdout.write('\n');
     };
