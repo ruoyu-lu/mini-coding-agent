@@ -1,12 +1,12 @@
 import { readFile, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
+import { shouldSkipPath } from './blocked-path.js';
 import type { MiniTool } from './tool.js';
 
 const defaultIncludePattern = '**/*';
 const defaultMaxResults = 200;
 const maxLineCharacters = 500;
-const blockedPathParts = new Set(['.env', '.minicode', 'node_modules', 'dist']);
 
 const grepInputSchema = z.object({
   pattern: z.string().min(1).describe('Text or regular expression pattern to search for.'),
@@ -33,10 +33,6 @@ function toPortablePath(filePath: string) {
 function isPathInside(parent: string, child: string) {
   const pathToChild = relative(parent, child);
   return pathToChild === '' || (!pathToChild.startsWith('..') && !isAbsolute(pathToChild));
-}
-
-function shouldSkipPath(relativePath: string) {
-  return relativePath.split(sep).some((part) => blockedPathParts.has(part));
 }
 
 async function* walkFiles(directoryPath: string): AsyncGenerator<string> {

@@ -1,10 +1,10 @@
 import { readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
+import { shouldSkipPath } from './blocked-path.js';
 import type { MiniTool } from './tool.js';
 
 const defaultMaxResults = 200;
-const blockedPathParts = new Set(['.env', '.minicode', 'node_modules', 'dist']);
 
 const globInputSchema = z.object({
   pattern: z.string().min(1).describe('Glob pattern for files to find, for example "src/**/*.ts".'),
@@ -24,10 +24,6 @@ function toPortablePath(filePath: string) {
 function isPathInside(parent: string, child: string) {
   const pathToChild = relative(parent, child);
   return pathToChild === '' || (!pathToChild.startsWith('..') && !isAbsolute(pathToChild));
-}
-
-function shouldSkipPath(relativePath: string) {
-  return relativePath.split(sep).some((part) => blockedPathParts.has(part));
 }
 
 async function* walkFiles(directoryPath: string): AsyncGenerator<string> {

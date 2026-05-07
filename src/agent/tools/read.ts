@@ -1,10 +1,10 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { z } from 'zod';
+import { getBlockedPathPart } from './blocked-path.js';
 import type { MiniTool } from './tool.js';
 
 const maxOutputCharacters = 40_000;
-const blockedPathParts = new Set(['.env', '.minicode', 'node_modules', 'dist']);
 
 function isPathInside(parent: string, child: string) {
   const pathToChild = relative(parent, child);
@@ -13,8 +13,7 @@ function isPathInside(parent: string, child: string) {
 
 function assertReadablePath(projectRoot: string, filePath: string) {
   const relativePath = relative(projectRoot, filePath);
-  const pathParts = relativePath.split(sep);
-  const blockedPathPart = pathParts.find((part) => blockedPathParts.has(part));
+  const blockedPathPart = getBlockedPathPart(relativePath);
 
   if (!isPathInside(projectRoot, filePath)) {
     throw new Error('Read path must be inside the current project.');
