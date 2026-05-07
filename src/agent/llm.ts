@@ -1,7 +1,7 @@
 import { streamText, stepCountIs } from 'ai';
 import type { ModelMessage } from 'ai';
 import { agentSystemPrompt, createSingleTurnMessages } from './prompt.js';
-import { agentTools } from './tools/index.js';
+import { createAgentTools } from './tools/index.js';
 import { getLanguageModel } from '../provider/provider.js';
 import { getProviderOptions } from '../provider/transform.js';
 
@@ -18,7 +18,7 @@ export async function streamAgentResponse(userInput: string, options: StreamAgen
     model,
     system: agentSystemPrompt,
     messages: options.messages ?? createSingleTurnMessages(userInput),
-    tools: agentTools,
+    tools: createAgentTools(),
     stopWhen: stepCountIs(3),
     providerOptions: getProviderOptions(providerName, modelName),
     onError({ error }) {

@@ -1,7 +1,7 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { tool } from 'ai';
 import { z } from 'zod';
+import type { MiniTool } from './tool.js';
 
 const maxOutputCharacters = 40_000;
 const blockedPathParts = new Set(['.env', '.minicode', 'node_modules', 'dist']);
@@ -36,16 +36,19 @@ function normalizeLineRange(totalLines: number, startLine?: number, endLine?: nu
   return { start, end };
 }
 
-export const readTool = tool({
+const readInputSchema = z.object({
+  path: z.string().describe('File path to read, relative to the current project when possible.'),
+  startLine: z.number().int().positive().optional().describe('Optional 1-based first line to include.'),
+  endLine: z.number().int().positive().optional().describe('Optional 1-based last line to include.'),
+});
+
+export const readTool: MiniTool<typeof readInputSchema> = {
+  id: 'read',
   description:
     'Read a UTF-8 text file from the current project. Use this before answering questions about specific files.',
-  inputSchema: z.object({
-    path: z.string().describe('File path to read, relative to the current project when possible.'),
-    startLine: z.number().int().positive().optional().describe('Optional 1-based first line to include.'),
-    endLine: z.number().int().positive().optional().describe('Optional 1-based last line to include.'),
-  }),
-  execute: async ({ path, startLine, endLine }) => {
-    const projectRoot = await realpath(process.cwd());
+  inputSchema: readInputSchema,
+  execute: async ({ path, startLine, endLine }, context) => {
+    const projectRoot = await realpath(context.cwd);
     const requestedPath = resolve(projectRoot, path);
     const filePath = await realpath(requestedPath);
 
@@ -74,4 +77,4 @@ export const readTool = tool({
       content,
     };
   },
-});
+};

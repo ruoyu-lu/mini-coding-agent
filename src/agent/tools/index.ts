@@ -1,5 +1,10 @@
 import { readTool } from './read.js';
+import { createToolContext, resolveAgentTools } from './tool.js';
 
-export const agentTools = {
-  read: readTool,
-};
+export const miniTools = [readTool];
+
+export function createAgentTools() {
+  return resolveAgentTools(miniTools, createToolContext());
+}
+
+export type { MiniTool, ToolContext } from './tool.js';
