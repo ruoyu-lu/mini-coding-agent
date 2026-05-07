@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { restoreProcessEnv } from '../../../test/helpers.js';
-import { runLoginCommand, validateBaseUrl, validateRequired } from '../login.js';
+import { runLoginCommand, runLoginCommandWithDependencies, validateBaseUrl, validateRequired } from '../login.js';
 
 const loginEnvKeys = ['OPENAI_BASE_URL', 'OPENAI_API_KEY', 'OPENAI_MODEL'];
 
@@ -33,7 +33,7 @@ test('runLoginCommand writes prompted values and updates process env', async (t)
   const writes: Array<Record<string, string>> = [];
   const logs: string[] = [];
 
-  await runLoginCommand({
+  await runLoginCommandWithDependencies({
     readUserEnv: async () => ({}),
     writeUserEnv: async (updates) => {
       writes.push(updates);
@@ -66,7 +66,7 @@ test('runLoginCommand uses env values before existing saved values for prompt de
   const initialValues: Array<string | undefined> = [];
   const textValues = ['https://api.example.test/v1', 'gpt-test'];
 
-  await runLoginCommand({
+  await runLoginCommandWithDependencies({
     readUserEnv: async () => ({
       OPENAI_BASE_URL: 'https://saved.example.test/v1',
       OPENAI_MODEL: 'saved-model',
@@ -91,7 +91,7 @@ test('runLoginCommand cancels without writing when a prompt is cancelled', async
   let didWrite = false;
   const logs: string[] = [];
 
-  await runLoginCommand({
+  await runLoginCommandWithDependencies({
     readUserEnv: async () => ({}),
     writeUserEnv: async () => {
       didWrite = true;
@@ -104,4 +104,8 @@ test('runLoginCommand cancels without writing when a prompt is cancelled', async
 
   assert.equal(didWrite, false);
   assert.match(logs[0] ?? '', /Login cancelled/);
+});
+
+test('runLoginCommand ignores Commander action arguments', () => {
+  assert.equal(runLoginCommand.length, 0);
 });

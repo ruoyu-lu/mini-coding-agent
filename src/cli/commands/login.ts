@@ -48,7 +48,7 @@ function cancelLogin(log: (message: string) => void) {
   log(pc.yellow('Login cancelled.'));
 }
 
-export async function runLoginCommand(dependencies: Partial<LoginCommandDependencies> = {}) {
+export async function runLoginCommandWithDependencies(dependencies: Partial<LoginCommandDependencies> = {}) {
   const {
     readUserEnv: readEnv,
     writeUserEnv: writeEnv,
@@ -106,4 +106,8 @@ export async function runLoginCommand(dependencies: Partial<LoginCommandDependen
   process.env.OPENAI_MODEL = model;
 
   log(pc.green(`OpenAI-compatible login saved to ${envPath}.`));
+}
+
+export async function runLoginCommand() {
+  await runLoginCommandWithDependencies();
 }
