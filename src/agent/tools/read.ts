@@ -1,15 +1,10 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { z } from 'zod';
-import { getBlockedPathPart } from './blocked-path.js';
+import { getBlockedPathPart, isPathInside } from './fs-utils.js';
 import type { MiniTool } from './tool.js';
 
 const maxOutputCharacters = 40_000;
-
-function isPathInside(parent: string, child: string) {
-  const pathToChild = relative(parent, child);
-  return pathToChild === '' || (!pathToChild.startsWith('..') && !isAbsolute(pathToChild));
-}
 
 function assertReadablePath(projectRoot: string, filePath: string) {
   const relativePath = relative(projectRoot, filePath);

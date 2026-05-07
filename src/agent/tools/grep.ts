@@ -1,7 +1,14 @@
-import { readFile, readdir, realpath } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { readFile, realpath } from 'node:fs/promises';
+import { relative, resolve } from 'node:path';
 import { z } from 'zod';
-import { shouldSkipPath } from './blocked-path.js';
+import {
+  escapeRegExp,
+  globPatternToRegExp,
+  isPathInside,
+  shouldSkipPath,
+  toPortablePath,
+  walkFiles,
+} from './fs-utils.js';
 import type { MiniTool } from './tool.js';
 
 const defaultIncludePattern = '**/*';
@@ -25,75 +32,6 @@ const grepInputSchema = z.object({
     .optional()
     .describe('Optional maximum number of matching lines to return.'),
 });
-
-function toPortablePath(filePath: string) {
-  return filePath.split(sep).join('/');
-}
-
-function isPathInside(parent: string, child: string) {
-  const pathToChild = relative(parent, child);
-  return pathToChild === '' || (!pathToChild.startsWith('..') && !isAbsolute(pathToChild));
-}
-
-async function* walkFiles(directoryPath: string): AsyncGenerator<string> {
-  const entries = await readdir(directoryPath, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (shouldSkipPath(entry.name)) continue;
-
-    const entryPath = resolve(directoryPath, entry.name);
-
-    if (entry.isDirectory()) {
-      yield* walkFiles(entryPath);
-      continue;
-    }
-
-    if (entry.isFile()) {
-      yield entryPath;
-    }
-  }
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
-}
-
-function globPatternToRegExp(pattern: string) {
-  const normalizedPattern = pattern.split(sep).join('/');
-  let regex = '^';
-
-  for (let index = 0; index < normalizedPattern.length; index += 1) {
-    const char = normalizedPattern[index];
-    const nextChar = normalizedPattern[index + 1];
-    const afterNextChar = normalizedPattern[index + 2];
-
-    if (char === '*') {
-      if (nextChar === '*') {
-        if (afterNextChar === '/') {
-          regex += '(?:.*/)?';
-          index += 2;
-        } else {
-          regex += '.*';
-          index += 1;
-        }
-
-        continue;
-      }
-
-      regex += '[^/]*';
-      continue;
-    }
-
-    if (char === '?') {
-      regex += '[^/]';
-      continue;
-    }
-
-    regex += escapeRegExp(char);
-  }
-
-  return new RegExp(`${regex}$`);
-}
 
 function createSearchRegExp(pattern: string, caseSensitive: boolean, useRegex: boolean) {
   const source = useRegex ? pattern : escapeRegExp(pattern);
