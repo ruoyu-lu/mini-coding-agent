@@ -26,7 +26,12 @@ export function shouldSkipPath(relativePath: string) {
 }
 
 export async function* walkFiles(directoryPath: string): AsyncGenerator<string> {
-  const entries = await readdir(directoryPath, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await readdir(directoryPath, { withFileTypes: true });
+  } catch {
+    return;
+  }
 
   for (const entry of entries) {
     if (shouldSkipPath(entry.name)) continue;
