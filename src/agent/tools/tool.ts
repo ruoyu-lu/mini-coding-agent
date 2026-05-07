@@ -1,16 +1,16 @@
 import { tool } from 'ai';
 import type { ToolSet } from 'ai';
-import type { z } from 'zod';
+import type { output, ZodType } from 'zod';
 
 export type ToolContext = {
   cwd: string;
 };
 
-export type MiniTool<InputSchema extends z.ZodType> = {
+export type MiniTool<InputSchema extends ZodType> = {
   id: string;
   description: string;
   inputSchema: InputSchema;
-  execute: (input: z.output<InputSchema>, context: ToolContext) => Promise<unknown>;
+  execute: (input: output<InputSchema>, context: ToolContext) => Promise<unknown>;
 };
 
 export function createToolContext(): ToolContext {
@@ -19,7 +19,7 @@ export function createToolContext(): ToolContext {
   };
 }
 
-export function resolveAgentTools(tools: MiniTool<z.ZodType>[], context: ToolContext): ToolSet {
+export function resolveAgentTools(tools: MiniTool<ZodType>[], context: ToolContext): ToolSet {
   return Object.fromEntries(
     tools.map((item) => [
       item.id,
