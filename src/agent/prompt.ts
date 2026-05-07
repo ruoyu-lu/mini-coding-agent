@@ -59,12 +59,18 @@ function getTerminalColumns() {
 }
 
 function getVisualRows(width: number, columns: number) {
+  return Math.max(1, Math.floor(width / columns) + 1);
+}
+
+function getWrittenRows(width: number, columns: number) {
   return Math.max(1, Math.ceil(width / columns));
 }
 
-function getCursorColumn(width: number, columns: number) {
-  const column = width % columns;
-  return width > 0 && column === 0 ? columns - 1 : column;
+function getCursorPosition(width: number, columns: number) {
+  return {
+    row: Math.floor(width / columns),
+    column: width % columns,
+  };
 }
 
 function getPreviousCodePointOffset(value: string, offset: number) {
@@ -177,18 +183,20 @@ export async function readInputWithSlashSuggestions(message: string) {
 
     const columns = getTerminalColumns();
     const lineRows = lineWidths.map((width) => getVisualRows(width, columns));
+    const writtenRows = lineWidths.map((width) => getWrittenRows(width, columns));
     const nextRenderedRows = lineRows.reduce((sum, rows) => sum + rows, 0);
+    const writtenCursorRow = writtenRows.reduce((sum, rows) => sum + rows, 0) - 1;
     const cursorWidth = 2 + getTerminalWidth(input.slice(0, cursorOffset));
-    const inputCursorRow = Math.min(Math.floor(cursorWidth / columns), lineRows[1] - 1);
+    const cursorPosition = getCursorPosition(cursorWidth, columns);
+    const inputCursorRow = Math.min(cursorPosition.row, lineRows[1] - 1);
     const nextRenderedCursorRow = lineRows[0] + inputCursorRow;
-    const cursorColumn = getCursorColumn(cursorWidth, columns);
 
     process.stdout.write(lines.join('\n'));
     renderedRows = nextRenderedRows;
     renderedCursorRow = nextRenderedCursorRow;
 
-    readline.moveCursor(process.stdout, 0, renderedCursorRow - (renderedRows - 1));
-    readline.cursorTo(process.stdout, cursorColumn);
+    readline.moveCursor(process.stdout, 0, renderedCursorRow - writtenCursorRow);
+    readline.cursorTo(process.stdout, cursorPosition.column);
   };
 
   return new Promise<string | null>((resolve) => {
