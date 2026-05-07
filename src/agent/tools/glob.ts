@@ -49,10 +49,6 @@ async function* walkFiles(directoryPath: string): AsyncGenerator<string> {
   }
 }
 
-function matchesGlobPattern(filePath: string, pattern: string) {
-  return globPatternToRegExp(pattern).test(filePath);
-}
-
 function escapeRegExp(value: string) {
   return value.replace(/[\\^$+?.()|[\]{}]/g, '\\$&');
 }
@@ -108,6 +104,7 @@ export const globTool: MiniTool<typeof globInputSchema> = {
     }
 
     const limit = maxResults ?? defaultMaxResults;
+    const patternRegExp = globPatternToRegExp(pattern);
     const matches: string[] = [];
 
     for await (const filePath of walkFiles(requestedRoot)) {
@@ -115,7 +112,7 @@ export const globTool: MiniTool<typeof globInputSchema> = {
       if (shouldSkipPath(relativePath)) continue;
 
       const portablePath = toPortablePath(relativePath);
-      if (!matchesGlobPattern(portablePath, pattern)) continue;
+      if (!patternRegExp.test(portablePath)) continue;
 
       matches.push(portablePath);
       if (matches.length >= limit) break;
