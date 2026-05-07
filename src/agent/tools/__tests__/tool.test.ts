@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { z } from 'zod';
-import { createToolContext, resolveAgentTools } from './tool.js';
+import { createToolContext, resolveAgentTools } from '../tool.js';
 
 test('createToolContext captures the current working directory', () => {
   assert.equal(createToolContext().cwd, process.cwd());

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { restoreProcessEnv } from '../../test/helpers.js';
-import { runLoginCommand, validateBaseUrl, validateRequired } from './login.js';
+import { restoreProcessEnv } from '../../../test/helpers.js';
+import { runLoginCommand, validateBaseUrl, validateRequired } from '../login.js';
 
 const loginEnvKeys = ['OPENAI_BASE_URL', 'OPENAI_API_KEY', 'OPENAI_MODEL'];
 

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
-import { captureConsoleLog, createTempDir } from '../../test/helpers.js';
-import { runInitCommand } from './init.js';
+import { captureConsoleLog, createTempDir } from '../../../test/helpers.js';
+import { runInitCommand } from '../init.js';
 
 test('runInitCommand initializes the current project and prints completion', async (t) => {
   const cwd = process.cwd();

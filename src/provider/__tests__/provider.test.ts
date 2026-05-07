@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { restoreProcessEnv } from '../test/helpers.js';
-import { getLanguageModel } from './provider.js';
+import { restoreProcessEnv } from '../../test/helpers.js';
+import { getLanguageModel } from '../provider.js';
 
 const providerEnvKeys = [
   'OPENAI_BASE_URL',

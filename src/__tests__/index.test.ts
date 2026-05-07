@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createProgram } from './index.js';
+import { createProgram } from '../index.js';
 
 test('createProgram configures the CLI name, description, and version', () => {
   const program = createProgram();

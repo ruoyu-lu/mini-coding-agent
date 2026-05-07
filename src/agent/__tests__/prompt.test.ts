@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { ModelMessage } from 'ai';
 import test from 'node:test';
-import { agentSystemPrompt, createConversationMessages, createSingleTurnMessages } from './prompt.js';
+import { agentSystemPrompt, createConversationMessages, createSingleTurnMessages } from '../prompt.js';
 
 test('agentSystemPrompt tells the assistant to inspect files when needed', () => {
   assert.match(agentSystemPrompt, /Use available tools/);

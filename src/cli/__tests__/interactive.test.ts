@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { ModelMessage } from 'ai';
 import test from 'node:test';
-import { trimConversationHistory } from './interactive.js';
+import { trimConversationHistory } from '../interactive.js';
 
 test('trimConversationHistory keeps the most recent twenty messages', () => {
   const history: ModelMessage[] = Array.from({ length: 25 }, (_, index) => ({

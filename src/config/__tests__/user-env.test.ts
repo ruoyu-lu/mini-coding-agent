@@ -4,13 +4,13 @@ import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import test from 'node:test';
-import { createTempDir, restoreProcessEnv } from '../test/helpers.js';
+import { createTempDir, restoreProcessEnv } from '../../test/helpers.js';
 
-type UserEnvModule = typeof import('./user-env.js');
+type UserEnvModule = typeof import('../user-env.js');
 
 async function importFreshUserEnv(configHome: string): Promise<UserEnvModule> {
   process.env.XDG_CONFIG_HOME = configHome;
-  return import(`./user-env.js?test=${randomUUID()}`);
+  return import(`../user-env.js?test=${randomUUID()}`);
 }
 
 test('userEnvPath is resolved from XDG_CONFIG_HOME at import time', async (t) => {

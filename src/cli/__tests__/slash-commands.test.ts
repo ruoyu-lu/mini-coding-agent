@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { captureConsoleLog, createRandomString, createSeededRandom } from '../test/helpers.js';
+import { captureConsoleLog, createRandomString, createSeededRandom } from '../../test/helpers.js';
 import {
   findExactSlashCommand,
   findSlashCommand,
@@ -10,7 +10,7 @@ import {
   parseSlashInput,
   scoreCommandTerm,
   showSlashCommandHelp,
-} from './slash-commands.js';
+} from '../slash-commands.js';
 
 test('parseSlashInput parses slash command names and args', () => {
   assert.equal(parseSlashInput('hello'), null);
