@@ -72,12 +72,12 @@ export async function runInteractiveMode() {
 
       process.stdout.write('\n');
 
-      if (assistantResponse.trim()) {
-        conversationHistory = trimConversationHistory([
-          ...messages,
-          { role: 'assistant', content: assistantResponse },
-        ]);
-      }
+      conversationHistory = trimConversationHistory([
+        ...messages,
+        ...(assistantResponse.trim()
+          ? [{ role: 'assistant' as const, content: assistantResponse }]
+          : []),
+      ]);
     } catch (error) {
       s.stop('Agent failed.');
       console.log(pc.red(error instanceof Error ? error.message : 'Unexpected LLM error'));
