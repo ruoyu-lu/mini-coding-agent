@@ -1,14 +1,15 @@
 import { streamText } from 'ai';
 import type { ModelMessage } from 'ai';
 import { agentSystemPrompt } from './prompt.js';
-import { miniTools } from './tools/index.js';
-import { resolveModelTools } from './tools/tool.js';
-import { getLanguageModel } from '../provider/provider.js';
-import { getProviderOptions } from '../provider/transform.js';
+import { getProviderOptions } from '../llm/options.js';
+import { getLanguageModel } from '../llm/provider.js';
+import { miniTools } from '../tools/index.js';
+import { resolveModelTools } from '../tools/tool.js';
 
 export type CallModelInput = {
   messages: ModelMessage[];
   abortSignal?: AbortSignal;
+  onError?: (error: unknown) => void;
 };
 
 export type CallModelResult = {
@@ -19,7 +20,7 @@ export type AgentLoopDependencies = {
   callModel: (input: CallModelInput) => CallModelResult | Promise<CallModelResult>;
 };
 
-export function callModel({ messages, abortSignal }: CallModelInput): CallModelResult {
+export function callModel({ messages, abortSignal, onError }: CallModelInput): CallModelResult {
   const { model, providerName, modelName } = getLanguageModel();
 
   return streamText({
@@ -29,6 +30,9 @@ export function callModel({ messages, abortSignal }: CallModelInput): CallModelR
     tools: resolveModelTools(miniTools),
     providerOptions: getProviderOptions(providerName, modelName),
     abortSignal,
+    onError({ error }) {
+      onError?.(error);
+    },
   });
 }
 

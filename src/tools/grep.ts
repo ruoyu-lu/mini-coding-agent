@@ -8,7 +8,7 @@ import {
   shouldSkipPath,
   toPortablePath,
   walkFiles,
-} from './fs-utils.js';
+} from '../workspace/fs-utils.js';
 import type { MiniTool } from './tool.js';
 
 const defaultIncludePattern = '**/*';

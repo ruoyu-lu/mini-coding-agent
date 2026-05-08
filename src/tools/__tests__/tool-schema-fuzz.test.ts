@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createRandomString, createSeededRandom } from '../../../test/helpers.js';
+import { createRandomString, createSeededRandom } from '../../test/helpers.js';
 import { miniTools } from '../index.js';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };

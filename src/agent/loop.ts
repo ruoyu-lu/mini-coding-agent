@@ -2,8 +2,8 @@ import type { ModelMessage } from 'ai';
 import type { AgentLoopDependencies } from './deps.js';
 import { defaultAgentLoopDependencies } from './deps.js';
 import type { AgentLoopEvent } from './events.js';
-import { miniTools } from './tools/index.js';
-import { createToolContext, runMiniTool } from './tools/tool.js';
+import { miniTools } from '../tools/index.js';
+import { createToolContext, runMiniTool } from '../tools/tool.js';
 
 type AgentToolCall = {
   toolCallId: string;
@@ -15,6 +15,7 @@ export type AgentLoopOptions = {
   messages: ModelMessage[];
   maxTurns?: number;
   abortSignal?: AbortSignal;
+  onError?: (error: unknown) => void;
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -147,6 +148,7 @@ export async function* runAgentLoop(
         const result = await resolvedDependencies.callModel({
           messages: getModelCallMessages(options, messages, turn),
           abortSignal: options.abortSignal,
+          onError: options.onError,
         });
 
         for await (const part of result.fullStream) {

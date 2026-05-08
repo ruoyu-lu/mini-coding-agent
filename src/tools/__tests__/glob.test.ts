@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
-import { createTempDir } from '../../../test/helpers.js';
+import { createTempDir } from '../../test/helpers.js';
 import { globTool } from '../glob.js';
 
 type GlobResult = {
