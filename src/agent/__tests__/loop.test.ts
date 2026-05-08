@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import type { ModelMessage } from 'ai';
 import test from 'node:test';
-import { agentSystemPrompt } from '../prompt.js';
-import { generateAgentResponse, streamAgentResponse } from '../llm.js';
+import { agentSystemPrompt } from '../messages.js';
+import { generateAgentResponse, streamAgentResponse } from '../loop.js';
 
 function createTextStream(chunks: string[]) {
   return (async function* () {

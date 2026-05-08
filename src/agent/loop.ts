@@ -1,9 +1,9 @@
 import { streamText as aiStreamText, stepCountIs as aiStepCountIs } from 'ai';
 import type { ModelMessage } from 'ai';
-import { agentSystemPrompt, createSingleTurnMessages } from './prompt.js';
-import { createAgentTools } from './tools/index.js';
-import { getLanguageModel } from '../provider/provider.js';
-import { getProviderOptions } from '../provider/transform.js';
+import { agentSystemPrompt, createSingleTurnMessages } from './messages.js';
+import { createAgentTools } from '../tools/registry.js';
+import { getLanguageModel } from '../llm/provider.js';
+import { getProviderOptions } from '../llm/options.js';
 
 export type StreamAgentResponseOptions = {
   messages?: ModelMessage[];

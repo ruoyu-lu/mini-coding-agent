@@ -3,7 +3,7 @@ import { mkdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 import { captureConsoleLog, createTempDir } from '../../test/helpers.js';
-import { createJsonFile, initProject } from '../init-project.js';
+import { createJsonFile, initProject } from '../project.js';
 
 test('createJsonFile writes pretty JSON with a trailing newline', async (t) => {
   const directory = await createTempDir(t);

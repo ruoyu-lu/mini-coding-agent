@@ -1,17 +1,7 @@
 import { tool } from 'ai';
 import type { ToolSet } from 'ai';
-import type { output, ZodType } from 'zod';
-
-export type ToolContext = {
-  cwd: string;
-};
-
-export type MiniTool<InputSchema extends ZodType> = {
-  id: string;
-  description: string;
-  inputSchema: InputSchema;
-  execute: (input: output<InputSchema>, context: ToolContext) => Promise<unknown>;
-};
+import type { ZodType } from 'zod';
+import type { MiniTool, ToolContext } from './types.js';
 
 export function createToolContext(): ToolContext {
   return {

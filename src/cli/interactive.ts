@@ -1,15 +1,13 @@
 import { intro, outro, spinner } from '@clack/prompts';
 import type { ModelMessage } from 'ai';
 import pc from 'picocolors';
-import { streamAgentResponse } from '../agent/llm.js';
-import { createConversationMessages, promptForInput } from '../agent/prompt.js';
+import { streamAgentResponse } from '../agent/loop.js';
+import {
+  createConversationMessages,
+  trimConversationHistory,
+} from '../agent/messages.js';
+import { promptForInput } from './input.js';
 import { handleSlashCommand } from './slash-commands.js';
-
-const maxConversationMessages = 20;
-
-export function trimConversationHistory(history: ModelMessage[]) {
-  return history.slice(-maxConversationMessages);
-}
 
 export async function runInteractiveMode() {
   console.clear();

@@ -1,5 +1,5 @@
 import pc from 'picocolors';
-import { initProject } from '../../project/init-project.js';
+import { initProject } from '../../workspace/project.js';
 
 export async function runInitCommand() {
   await initProject();

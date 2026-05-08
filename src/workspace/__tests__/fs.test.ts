@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
-import { createRandomString, createSeededRandom, createTempDir } from '../../../test/helpers.js';
+import { createRandomString, createSeededRandom, createTempDir } from '../../test/helpers.js';
 import {
   escapeRegExp,
   getBlockedPathPart,
@@ -11,7 +11,7 @@ import {
   shouldSkipPath,
   toPortablePath,
   walkFiles,
-} from '../fs-utils.js';
+} from '../fs.js';
 
 test('toPortablePath converts platform separators to slash separators', () => {
   assert.equal(toPortablePath(join('src', 'agent', 'tools')), 'src/agent/tools');
