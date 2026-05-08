@@ -13,6 +13,20 @@ export type MiniTool<InputSchema extends ZodType> = {
   execute: (input: output<InputSchema>, context: ToolContext) => Promise<unknown>;
 };
 
+export type ToolCallInput = {
+  toolName: string;
+  input: unknown;
+};
+
+function formatToolInputPath(path: PropertyKey[]) {
+  return path.length > 0 ? path.map(String).join('.') : 'input';
+}
+
+function formatToolInputError(toolName: string, issues: Array<{ path: PropertyKey[]; message: string }>) {
+  const details = issues.map((issue) => `${formatToolInputPath(issue.path)}: ${issue.message}`).join('; ');
+  return `Invalid input for tool "${toolName}": ${details}`;
+}
+
 export function createToolContext(): ToolContext {
   return {
     cwd: process.cwd(),
@@ -32,4 +46,35 @@ export function resolveAgentTools(tools: MiniTool<ZodType>[], context: ToolConte
       }),
     ]),
   );
+}
+
+export function resolveModelTools(tools: MiniTool<ZodType>[]): ToolSet {
+  return Object.fromEntries(
+    tools.map((item) => [
+      item.id,
+      tool({
+        description: item.description,
+        inputSchema: item.inputSchema,
+      }),
+    ]),
+  );
+}
+
+export async function runMiniTool(
+  tools: MiniTool<ZodType>[],
+  toolCall: ToolCallInput,
+  context: ToolContext,
+) {
+  const selectedTool = tools.find((item) => item.id === toolCall.toolName);
+
+  if (!selectedTool) {
+    throw new Error(`Unknown tool: ${toolCall.toolName}`);
+  }
+
+  const parsedInput = selectedTool.inputSchema.safeParse(toolCall.input);
+  if (!parsedInput.success) {
+    throw new Error(formatToolInputError(toolCall.toolName, parsedInput.error.issues));
+  }
+
+  return selectedTool.execute(parsedInput.data, context);
 }

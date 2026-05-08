@@ -1,7 +1,9 @@
-import { streamText as aiStreamText, stepCountIs as aiStepCountIs } from 'ai';
+import { streamText as aiStreamText } from 'ai';
 import type { ModelMessage } from 'ai';
+import { runAgentLoop } from './loop.js';
 import { agentSystemPrompt, createSingleTurnMessages } from './prompt.js';
-import { createAgentTools } from './tools/index.js';
+import { miniTools } from './tools/index.js';
+import { resolveModelTools } from './tools/tool.js';
 import { getLanguageModel } from '../provider/provider.js';
 import { getProviderOptions } from '../provider/transform.js';
 
@@ -14,18 +16,37 @@ export type StreamAgentResponseOptions = {
 type StreamAgentResponseDependencies = {
   getLanguageModel: typeof getLanguageModel;
   getProviderOptions: typeof getProviderOptions;
-  createAgentTools: typeof createAgentTools;
   streamText: typeof aiStreamText;
-  stepCountIs: typeof aiStepCountIs;
 };
 
 const defaultStreamAgentResponseDependencies: StreamAgentResponseDependencies = {
   getLanguageModel,
   getProviderOptions,
-  createAgentTools,
   streamText: aiStreamText,
-  stepCountIs: aiStepCountIs,
 };
+
+function hasFullStream(result: unknown): result is { fullStream: AsyncIterable<unknown> } {
+  if (typeof result !== 'object' || result === null) return false;
+
+  const fullStream = (result as { fullStream?: unknown }).fullStream;
+  return fullStream !== undefined && Symbol.asyncIterator in Object(fullStream);
+}
+
+function hasTextStream(result: unknown): result is { textStream: AsyncIterable<string> } {
+  if (typeof result !== 'object' || result === null) return false;
+
+  const textStream = (result as { textStream?: unknown }).textStream;
+  return textStream !== undefined && Symbol.asyncIterator in Object(textStream);
+}
+
+async function* fullStreamFromTextStream(textStream: AsyncIterable<string>) {
+  for await (const text of textStream) {
+    yield {
+      type: 'text-delta',
+      text,
+    };
+  }
+}
 
 export async function streamAgentResponse(
   userInput: string,
@@ -35,30 +56,46 @@ export async function streamAgentResponse(
   const {
     getLanguageModel: resolveLanguageModel,
     getProviderOptions: resolveProviderOptions,
-    createAgentTools: resolveAgentTools,
     streamText,
-    stepCountIs,
   } = { ...defaultStreamAgentResponseDependencies, ...dependencies };
 
-  const { model, providerName, modelName } = resolveLanguageModel();
-
-  const result = streamText({
-    model,
-    system: agentSystemPrompt,
-    messages: options.messages ?? createSingleTurnMessages(userInput),
-    tools: resolveAgentTools(),
-    stopWhen: stepCountIs(3),
-    providerOptions: resolveProviderOptions(providerName, modelName),
-    onError({ error }) {
-      options.onError?.(error);
-    },
-  });
-
+  const messages = options.messages ?? createSingleTurnMessages(userInput);
   let text = '';
 
-  for await (const textDelta of result.textStream) {
-    text += textDelta;
-    options.onTextDelta(textDelta);
+  try {
+    for await (const event of runAgentLoop(
+      { messages },
+      {
+        callModel({ messages: modelMessages, abortSignal }) {
+          const { model, providerName, modelName } = resolveLanguageModel();
+
+          const result: unknown = streamText({
+            model,
+            system: agentSystemPrompt,
+            messages: modelMessages,
+            tools: resolveModelTools(miniTools),
+            providerOptions: resolveProviderOptions(providerName, modelName),
+            abortSignal,
+            onError({ error }) {
+              options.onError?.(error);
+            },
+          });
+
+          if (hasFullStream(result)) return result;
+          if (hasTextStream(result)) return { fullStream: fullStreamFromTextStream(result.textStream) };
+
+          return result as never;
+        },
+      },
+    )) {
+      if (event.type !== 'assistant_text_delta') continue;
+
+      text += event.text;
+      options.onTextDelta(event.text);
+    }
+  } catch (error) {
+    options.onError?.(error);
+    throw error;
   }
 
   return text;
