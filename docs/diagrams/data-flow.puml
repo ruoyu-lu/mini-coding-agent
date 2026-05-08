@@ -1,0 +1,96 @@
+@startuml
+title Mini Code Agent - Data Flow
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName Monospaced
+skinparam packageStyle rectangle
+
+actor User
+
+package "CLI Layer" {
+  component "src/index.ts\nrunCli()" as RunCli
+  component "src/cli/interactive.ts\nrunInteractiveMode()" as Interactive
+  component "src/cli/input.ts\npromptForInput()" as Input
+  component "src/cli/slash-commands.ts\nhandleSlashCommand()" as SlashCommands
+  component "src/cli/commands/init.ts\nrunInitCommand()" as InitCommand
+  component "src/cli/commands/login.ts\nrunLoginCommand()" as LoginCommand
+}
+
+package "Agent Layer" {
+  component "src/agent/messages.ts\nconversation messages" as Messages
+  component "src/agent/loop.ts\nstreamAgentResponse()" as AgentLoop
+}
+
+package "LLM Layer" {
+  component "src/llm/provider.ts\ngetLanguageModel()" as Provider
+  component "src/llm/options.ts\ngetProviderOptions()" as ProviderOptions
+}
+
+package "Tool Layer" {
+  component "src/tools/registry.ts\nminiTools + createAgentTools()" as ToolRegistry
+  component "src/tools/runner.ts\nresolveAgentTools()" as ToolRunner
+  component "readTool" as ReadTool
+  component "globTool" as GlobTool
+  component "grepTool" as GrepTool
+}
+
+package "Workspace Layer" {
+  component "src/workspace/fs.ts\npath safety + traversal" as WorkspaceFs
+  component "src/workspace/project.ts\ninitProject()" as WorkspaceProject
+}
+
+database "Project files" as ProjectFiles
+artifact "User env\nOPENAI_* / DEEPSEEK_*" as Env
+component "AI SDK\nstreamText()" as AiSdk
+component "OpenAI-compatible\nprovider" as ModelProvider
+
+User --> RunCli : argv / interactive input
+RunCli --> Interactive : default command
+RunCli --> InitCommand : minicode init
+RunCli --> LoginCommand : minicode login
+
+Interactive --> Input : prompt text
+Input --> Interactive : userInput | null
+Interactive --> SlashCommands : userInput
+SlashCommands --> InitCommand : /init
+SlashCommands --> LoginCommand : /login
+InitCommand --> WorkspaceProject : create .minicode files
+WorkspaceProject --> ProjectFiles : .minicode/config.json\n.minicode/memory.json
+LoginCommand --> Env : persist provider config
+
+Interactive --> Messages : append + trim history
+Interactive --> AgentLoop : userInput + ModelMessage[]
+
+AgentLoop --> Provider : resolve model
+Provider --> Env : read provider config
+Provider --> ModelProvider : create provider(modelName)
+ModelProvider --> Provider : LanguageModel
+
+AgentLoop --> ProviderOptions : providerName + modelName
+AgentLoop --> ToolRegistry : createAgentTools()
+ToolRegistry --> ToolRunner : miniTools + ToolContext
+ToolRunner --> ReadTool : adapt MiniTool to AI SDK tool
+ToolRunner --> GlobTool : adapt MiniTool to AI SDK tool
+ToolRunner --> GrepTool : adapt MiniTool to AI SDK tool
+
+AgentLoop --> AiSdk : model, messages,\ntools, stopWhen,\nproviderOptions
+AiSdk --> ModelProvider : streamed request
+ModelProvider --> AiSdk : text deltas + tool calls
+
+AiSdk --> ReadTool : execute(input, context)
+AiSdk --> GlobTool : execute(input, context)
+AiSdk --> GrepTool : execute(input, context)
+
+ReadTool --> WorkspaceFs : path checks
+GlobTool --> WorkspaceFs : walk + glob match
+GrepTool --> WorkspaceFs : walk + skip blocked paths
+ReadTool --> ProjectFiles : read file
+GlobTool --> ProjectFiles : list files
+GrepTool --> ProjectFiles : read searchable files
+
+AiSdk --> AgentLoop : textStream
+AgentLoop --> Interactive : text deltas + final text
+Interactive --> User : streamed assistant output
+
+@enduml

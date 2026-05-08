@@ -1,0 +1,94 @@
+@startuml
+title Mini Code Agent - Interactive Request Sequence
+
+skinparam shadowing false
+skinparam defaultFontName Monospaced
+skinparam sequenceMessageAlign center
+
+actor User
+participant "runCli()\nsrc/index.ts" as RunCli
+participant "runInteractiveMode()\nsrc/cli/interactive.ts" as Interactive
+participant "promptForInput()\nsrc/cli/input.ts" as Input
+participant "handleSlashCommand()\nsrc/cli/slash-commands.ts" as Slash
+participant "messages.ts" as Messages
+participant "streamAgentResponse()\nsrc/agent/loop.ts" as AgentLoop
+participant "getLanguageModel()\nsrc/llm/provider.ts" as Provider
+participant "getProviderOptions()\nsrc/llm/options.ts" as Options
+participant "createAgentTools()\nsrc/tools/registry.ts" as Registry
+participant "resolveAgentTools()\nsrc/tools/runner.ts" as Runner
+participant "AI SDK\nstreamText()" as AiSdk
+participant "MiniTool\nread/glob/grep" as Tool
+participant "workspace/fs.ts" as Fs
+database "Project files" as Files
+participant "OpenAI-compatible\nmodel" as Model
+
+User -> RunCli : minicode
+RunCli -> Interactive : start interactive mode
+
+loop each prompt
+  Interactive -> Input : promptForInput("What do you want me to do?")
+  User -> Input : type input
+  Input --> Interactive : userInput | null
+
+  alt user cancels
+    Interactive --> User : Goodbye
+  else slash command
+    Interactive -> Slash : handleSlashCommand(userInput)
+    alt /init or /login or /help or /exit
+      Slash --> Interactive : { handled: true, shouldExit }
+      Interactive --> User : command output
+    else unknown slash command
+      Slash --> Interactive : { handled: true, shouldExit: false }
+      Interactive --> User : unknown command + help
+    end
+  else normal agent request
+    Interactive -> Messages : createConversationMessages(history, userInput)
+    Messages --> Interactive : ModelMessage[]
+
+    Interactive -> AgentLoop : streamAgentResponse(userInput, { messages, callbacks })
+    AgentLoop -> Provider : getLanguageModel()
+    Provider -> Model : create provider + model
+    Model --> Provider : LanguageModel
+    Provider --> AgentLoop : { providerName, modelName, model }
+
+    AgentLoop -> Options : getProviderOptions(providerName, modelName)
+    Options --> AgentLoop : providerOptions
+
+    AgentLoop -> Registry : createAgentTools()
+    Registry -> Runner : resolveAgentTools(miniTools, context)
+    Runner --> Registry : ToolSet
+    Registry --> AgentLoop : ToolSet
+
+    AgentLoop -> AiSdk : streamText({ model, system, messages, tools, stopWhen, providerOptions })
+    AiSdk -> Model : send prompt + available tools
+
+    opt model requests a tool
+      Model -> AiSdk : tool call
+      AiSdk -> Tool : execute(input, { cwd })
+      Tool -> Fs : realpath / path safety / walk files
+      Tool -> Files : read or list files
+      Files --> Tool : file data
+      Tool --> AiSdk : structured tool result
+      AiSdk -> Model : tool result
+    end
+
+    loop text deltas
+      Model --> AiSdk : text delta
+      AiSdk --> AgentLoop : result.textStream delta
+      AgentLoop -> Interactive : onTextDelta(delta)
+      Interactive --> User : write delta to stdout
+    end
+
+    alt stream error
+      AiSdk -> AgentLoop : onError(error)
+      AgentLoop -> Interactive : onError(error)
+      Interactive --> User : error message
+    else stream completes
+      AgentLoop --> Interactive : final assistant text
+      Interactive -> Messages : trimConversationHistory([...messages, assistant])
+      Messages --> Interactive : updated history
+    end
+  end
+end
+
+@enduml
