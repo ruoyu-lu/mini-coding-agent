@@ -18,6 +18,15 @@ export type ToolCallInput = {
   input: unknown;
 };
 
+function formatToolInputPath(path: PropertyKey[]) {
+  return path.length > 0 ? path.map(String).join('.') : 'input';
+}
+
+function formatToolInputError(toolName: string, issues: Array<{ path: PropertyKey[]; message: string }>) {
+  const details = issues.map((issue) => `${formatToolInputPath(issue.path)}: ${issue.message}`).join('; ');
+  return `Invalid input for tool "${toolName}": ${details}`;
+}
+
 export function createToolContext(): ToolContext {
   return {
     cwd: process.cwd(),
@@ -62,5 +71,10 @@ export async function runMiniTool(
     throw new Error(`Unknown tool: ${toolCall.toolName}`);
   }
 
-  return selectedTool.execute(toolCall.input, context);
+  const parsedInput = selectedTool.inputSchema.safeParse(toolCall.input);
+  if (!parsedInput.success) {
+    throw new Error(formatToolInputError(toolCall.toolName, parsedInput.error.issues));
+  }
+
+  return selectedTool.execute(parsedInput.data, context);
 }
