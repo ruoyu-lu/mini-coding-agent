@@ -1,11 +1,11 @@
-import { lstat, mkdir, realpath, writeFile } from 'node:fs/promises';
-import { dirname, relative, resolve } from 'node:path';
+import { lstat, realpath, writeFile } from 'node:fs/promises';
+import { relative, resolve } from 'node:path';
 import { z } from 'zod';
 import { getBlockedPathPart, isPathInside, toPortablePath } from '../workspace/fs-utils.js';
 import type { MiniTool } from './tool.js';
 
 function getPreReadInstruction() {
-  return ' Before overwriting an existing file, read it first so you understand the current contents.';
+  return ' Before replacing a file, read it first so you understand the current contents.';
 }
 
 function assertWritablePath(projectRoot: string, filePath: string) {
@@ -40,7 +40,7 @@ const writeInputSchema = z.object({
 
 export const writeTool: MiniTool<typeof writeInputSchema> = {
   id: 'write',
-  description: `Write complete UTF-8 content to a project file. This tool will overwrite the existing file if there is one at the provided path.${getPreReadInstruction()} Prefer the Edit tool for modifying existing files - it only sends the diff. Only use this tool to create new files or for complete rewrites. NEVER create documentation files (*.md) or README files unless explicitly requested by the User. Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.`,
+  description: `Replace the complete UTF-8 contents of an existing project file. This tool will fail if the file does not already exist.${getPreReadInstruction()} Prefer the Edit tool for modifying part of a file - it only sends the diff. Use shell commands to create, remove, or move files and directories. Only use this tool for complete rewrites of existing files. NEVER create documentation files (*.md) or README files unless explicitly requested by the User. Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.`,
   inputSchema: writeInputSchema,
   execute: async ({ path, content }, context) => {
     const projectRoot = await realpath(context.cwd);
@@ -49,6 +49,10 @@ export const writeTool: MiniTool<typeof writeInputSchema> = {
     assertWritablePath(projectRoot, filePath);
 
     const existingPath = await getExistingPathType(filePath);
+    if (!existingPath) {
+      throw new Error('Write path must already exist. Use shell commands to create files or directories first.');
+    }
+
     if (existingPath?.isDirectory()) {
       throw new Error('Write path must point to a file.');
     }
@@ -57,19 +61,15 @@ export const writeTool: MiniTool<typeof writeInputSchema> = {
       throw new Error('Write path must not be a symbolic link.');
     }
 
-    const parentPath = dirname(filePath);
-    await mkdir(parentPath, { recursive: true });
-    const realParentPath = await realpath(parentPath);
+    const realFilePath = await realpath(filePath);
+    assertWritablePath(projectRoot, realFilePath);
 
-    // Guard against symlinked parent directories escaping the project.
-    assertWritablePath(projectRoot, realParentPath);
-
-    await writeFile(filePath, content, 'utf8');
+    await writeFile(realFilePath, content, 'utf8');
 
     return {
-      path: toPortablePath(relative(projectRoot, filePath)),
+      path: toPortablePath(relative(projectRoot, realFilePath)),
       bytes: Buffer.byteLength(content, 'utf8'),
-      overwritten: existingPath !== null,
+      overwritten: true,
     };
   },
 };
